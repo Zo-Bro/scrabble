@@ -67,6 +67,7 @@ class Scrabble():
 
     def New_Game(self):
         self.word_Q = self.Randomize_Letters()
+        self.Construct_Empty_Playboard()
         # TODO: UI function for selecting number of players
         num_players = 2
         for person in range(0, num_players):
@@ -84,10 +85,19 @@ class Scrabble():
     def Construct_Empty_Playboard(self):
         self.__playboard = []
         for x in range(0, 15):
-            row = ['_' for y in range(0, 15)]
+            row = ['' for y in range(0, 15)]
             self.__playboard.append(row)
 
+    def Get_Playboard(self):
+        return self.__playboard
+
     def Set_Letter_On_Playboard(self, letter='', coord = []):
+        '''
+        Playboard accessed row (y) 1st, column (x) 2nd
+        :param letter:
+        :param coord:
+        :return:
+        '''
         x = coord[0]
         y = coord[1]
         self.__playboard[y].pop([x])
