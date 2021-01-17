@@ -132,7 +132,7 @@ class Scrabble():
 
         return
 
-    def Check_Word_Validity(self, letters=[], coords=[]):
+    def Check_Word_Validity(self, letters=[]):
         # TODO: query a scrabble dictionary database online
 
         return
@@ -140,23 +140,27 @@ class Scrabble():
     def Score_Current_Play(self):
         return
 
-    def Draw_Letters(self, count, player):
+    def Draw_Letters(self):
         '''
         Remove letters from the Queue and add them to the indicated players hand
         :param count:
         :return:
         '''
+
+
         return
 
     def Play_Letters(self, letters=[], coords=[]):
         '''
         Recursive.
         Need to ensure placement of letters is unoccupied, and that any nearby words created are also valid plays
+        scoring algorithm per word: (letter*multiplier+letter*multiplier+...)*word_multiplier
         :param letters: A list of  each letter played this turn
         :param coords: A list of the [x,y] coords of each letter played
         :return: Int value of the play
         '''
         score = 0
+
         for letter, coord in zip(letters, coords):
             if self.__playboard[coord] != '':
                 # this spot is occupied by a letter. This is an invalid play
@@ -182,9 +186,6 @@ class Scrabble():
 
 
     def Exchange_Letters(self, letters=[]):
-        return
-
-    def Game_Loop(self):
         return
 
     def Enter_Players(self):
