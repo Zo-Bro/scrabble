@@ -1,5 +1,3 @@
-#temp testing remote repo
-#temp
 class Player(object):
     def __init__(self, name=''):
         self.name = name
@@ -8,7 +6,8 @@ class Player(object):
 
     def Get_Inventory(self):
         return self.__inventory
-
+    def Move_Letter(self, old_index, new_index):
+       return
     def Add_To_Inventory(self, letter = str):
         '''
         This adds a single letter to the inventory
