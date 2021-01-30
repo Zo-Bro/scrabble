@@ -1,23 +1,41 @@
 import sys
 import os
+
 import pygame
 from pygame.locals import *
+
 import events
 import rules
 
-#ToDO: Refactor Globals into local-only set/get
-
 class Global_Vars:
+    '''
+    All the variables that need to be accessible by any function or class
+    '''
     def __init__(self):
-        self._TILE_SIZE = 32
+        # System Settings
         self._HEIGHT = 720
         self._WIDTH = 1080
         self._FPS = 60
-        self._GAME_MODE = 0
-        self._HIGHLIGHT_COLOR = (190, 0, 0, 50)
+
+        # Board Dimensions
+        self._TILE_SIZE = 32
         self._BORDER_SIZE = 4
         self._BOARD_OFFSET = (50, 100)
-        self._FONT = 'Corbel'
+
+        # Font
+        self._FONT = 'Cambria'
+
+        # Game Controls
+        self._GAME_MODE = 0
+
+        # Colors
+        self._ACTIVE_COLOR = (218, 234, 240)
+        self._INACTIVE_COLOR = (119, 155, 168)
+        self._FONT_COLOR = (35, 80, 97)
+        self._HIGHLIGHT_COLOR = (190, 0, 0, 50)
+        self._BG_COLOR = ()
+        self._TILE_COLOR = ()
+
     def get_tile_size(self):
         return self._TILE_SIZE
     def set_tile_size(self, val=32):
@@ -59,9 +77,17 @@ class Global_Vars:
     def get_board_offset(self):
         return self._BOARD_OFFSET
 
-    def get_font(self):
-        return self._FONT
+    def get_font(self, font_size=12):
+        return pygame.font.SysFont( self._FONT, font_size)
 
+    def get_active_color(self):
+        return self._ACTIVE_COLOR
+
+    def get_inactive_color(self):
+        return self._INACTIVE_COLOR
+
+    def get_font_color(self):
+        return self._FONT_COLOR
 
 Globals = Global_Vars()
 
@@ -87,7 +113,51 @@ class Images():
         '''
 
 IMAGES = Images()
+
+class TextInput:
+    '''
+    A Text Input Box
+    '''
+    def __init__(self, position=(0,0), width=200, height=100, font_size=24, max_chars=8):
+        self.rect = pygame.Rect(position, (width, height))
+        self.color = Globals.get_inactive_color()
+        self.font_color = Globals.get_font_color()
+        self.font_size = font_size
+        self.text = ''
+        self.text_surface = Globals.get_font(font_size).render(self.text, True, self.font_color)
+        self.active = False
+        self.max_chars = max_chars
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            mouse_position = pygame.mouse.get_pos()
+            if self.rect.collidepoint(mouse_position):
+                self.active = True
+                self.color = Globals.get_active_color()
+            else:
+                self.active = False
+                self.color = Globals.get_inactive_color()
+
+        if event.type == pygame.KEYDOWN:
+            if self.active:
+                if event.key == pygame.K_RETURN:
+                    self.active = False
+                    self.color = Globals.get_inactive_color()
+                elif event.key == pygame.K_BACKSPACE:
+                    self.text = self.text[:-1]
+                elif len(self.text) < self.max_chars:  # max 8 characters
+                    self.text += event.unicode
+
+    def update(self, displaySurface):
+        pygame.draw.rect(displaySurface, self.color, self.rect)
+        self.text_surface = Globals.get_font(self.font_size).render(self.text, True, self.font_color)
+        displaySurface.blit(self.text_surface, (self.rect.x+5, self.rect.y+5))
+
+        return
 class Button(pygame.sprite.Sprite):
+    '''
+    A Clickable Button bound to a specific event
+    '''
     def __init__(self, text='',
                  position=(Globals.get_height()/2, Globals.get_width()/2),
                  width=20,
@@ -98,7 +168,7 @@ class Button(pygame.sprite.Sprite):
                  color_pressed=(30,30,30,100),
                  event = 0):
         super().__init__()
-        font = pygame.font.SysFont(Globals.get_font(), 35)
+        font = Globals.get_font(35)
         self.color = color
         self.color_hover = color_hover
         self.color_pressed = color_pressed
@@ -147,9 +217,6 @@ class ImageSprite(pygame.sprite.Sprite):
     def set_image(self, image):
         self.image = pygame.transform.scale(image, self.custom_size)
 
-
-
-
 class Tile(pygame.sprite.Sprite):
     '''
     creates a rectangular sprite for each playable tile.
@@ -193,19 +260,21 @@ class Tile(pygame.sprite.Sprite):
 class SelectedTile(Tile):
     def __init__(self, coord):
         super().__init__( coord, color=(190, 0, 0, 20))
+        self.surf = pygame.Surface((Globals.get_tile_size()+(Globals.get_border_size()*2),
+                                    Globals.get_tile_size()+(Globals.get_border_size()*2)))
+        self.surf.fill(self.color)
         self.hidden = True
     def move(self, coord):
         if coord != self.coord:
             tile_size = Globals.get_tile_size()
             border_size = Globals.get_border_size()
             board_offset = Globals.get_board_offset()
-
             self.hidden = False
             border_x = tile_size / border_size * coord[0]
             border_y = tile_size / border_size * coord[1]
             self.rect.update(
-                            (tile_size * coord[0] + border_x + board_offset[0],
-                            tile_size * coord[1]+ border_y + board_offset[1]),
+                            ((tile_size * coord[0] + border_x + board_offset[0])-(border_size),
+                             (tile_size * coord[1]+ border_y + board_offset[1])-(border_size)),
                             (tile_size, tile_size)
                              )
             self.coord = coord
@@ -214,7 +283,6 @@ class SelectedTile(Tile):
 
         self.rect.update((-tile_size, -tile_size), (tile_size, tile_size))
         self.hidden = True
-
 
 class Inventory(pygame.sprite.Group):
     '''
@@ -250,7 +318,6 @@ class Inventory(pygame.sprite.Group):
     def get_inventory(self):
         inventory = self.player.Get_Inventory()
         return inventory
-
 
 class GameBoard(pygame.sprite.Group):
     '''
@@ -310,6 +377,7 @@ class GameBoard(pygame.sprite.Group):
 def MainMenu(displaysurface):
     # main menu buttons
     num_players = 2
+    name_text = ''
     player_minus_btn = Button(text="Remove Player",
                               position=(200, Globals.get_height()/2),
                               width=200,
@@ -329,7 +397,8 @@ def MainMenu(displaysurface):
                        event=pygame.event.Event(events.game_start_e))
     main_menu_buttons = pygame.sprite.Group(start_btn)
     main_menu_buttons.add([player_minus_btn, player_plus_btn])
-    #main menu sprites
+
+    # main menu sprites
     main_menu_bg = ImageSprite(image=IMAGES.images['main_menu_bg'],
                                position=(0,0),
                                set_custom_size=(Globals.get_width(), Globals.get_height())
@@ -340,6 +409,9 @@ def MainMenu(displaysurface):
                                      )
     main_menu_sprites = pygame.sprite.Group([player_count_image])
 
+    # name input box
+    box2 = TextInput(position=(100,200))
+
     in_menu = True
     while in_menu:
         for button in main_menu_buttons:
@@ -349,6 +421,7 @@ def MainMenu(displaysurface):
                 button.neutral()
 
         for event in pygame.event.get():
+            box2.handle_event(event)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_position = pygame.mouse.get_pos()
                 for button in main_menu_buttons:
@@ -357,30 +430,36 @@ def MainMenu(displaysurface):
             if event.type == events.game_start_e:
                 in_menu = False
                 return 1
-            elif event.type == events.increase_players_e:
+            if event.type == events.increase_players_e:
                 print("players increased")
                 if num_players < 4:
                     num_players += 1
                     player_count_image.set_image(IMAGES.images[str(num_players)])
-            elif event.type == events.decrease_players_e:
+            if event.type == events.decrease_players_e:
                 if num_players > 2:
                     num_players -= 1
                     player_count_image.set_image(IMAGES.images[str(num_players)])
                 print("players decreased")
 
-            elif event.type == QUIT:
+            if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
 
             # render
+            # bg
             displaysurface.blit(main_menu_bg.image, main_menu_bg.rect)
+            # buttons
             for button in main_menu_buttons:
                 button.update(displaysurface)
+            # sprites
             for entity in main_menu_sprites:
                 if hasattr(entity, 'image'):
                     displaysurface.blit(entity.image, entity.rect)
                 else:
                     displaysurface.blit(entity.surf, entity.rect)
+            # input box
+            box2.update(displaysurface)
+
             pygame.display.update()
             FramePerSec.tick(Globals.get_fps())
 
@@ -464,19 +543,23 @@ def Sim(displaysurface, gameboard, game_instance):
         displaysurface.fill((0,0,0)) # bg (temp)
         # update Game Board Tiles
         displaysurface.blit(gameboard.surf, gameboard.rect) #showing active bounds of board (temp)
+        if FOCUS: #Selected tile
+            displaysurface.blit(selected_tile.surf, selected_tile.rect)
         for entity in gameboard:
             if entity.image:
                 displaysurface.blit(entity.image, entity.rect)
             else:
                 displaysurface.blit(entity.surf, entity.rect)
-        if FOCUS: #Selected tile
-            displaysurface.blit(selected_tile.surf, selected_tile.rect)
         for button in game_buttons:
             button.update(displaysurface)
 
         pygame.display.update()
         FramePerSec.tick(Globals.get_fps())
     return
+
+
+
+# App Setup
 pygame.init()
 
 # setup display
