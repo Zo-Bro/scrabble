@@ -59,17 +59,92 @@ class Scrabble():
                                     'y':4,
                                     'z':10
                                     }
+        self.special_tiles = {
+            # triple word scores
+            (0,0):(3,'w'),
+            (0,7):(3,'w'),
+            (0,14):(3,'w'),
+            (7, 14):(3,'w'),
+            (14,0):(3,'w'),
+            (14, 7):(3,'w'),
+            (14,14):(3,'w'),
+            (7,0):(3,'w'),
+
+            # double word scores
+            (1,1):(2, 'w'),
+            (2,2):(2, 'w'),
+            (3,3):(2, 'w'),
+            (4,4):(2, 'w'),
+            (13,1):(2, 'w'),
+            (12,2):(2, 'w'),
+            (11,3):(2, 'w'),
+            (10,4):(2, 'w'),
+            (1,13):(2, 'w'),
+            (2,12):(2, 'w'),
+            (3,11):(2, 'w'),
+            (4,10):(2, 'w'),
+            (10,10):(2, 'w'),
+            (11,11):(2, 'w'),
+            (12,12):(2, 'w'),
+            (13,13):(2, 'w'),
+
+            # triple letter score
+            (5,1):(3,'l'),
+            (9,1):(3,'l'),
+            (5,13):(3,'l'),
+            (9,13):(3,'l'),
+            (1,5):(3,'l'),
+            (5,5):(3,'l'),
+            (9,5):(3,'l'),
+            (13,5):(3,'l'),
+            (1,9):(3,'l'),
+            (5,9):(3,'l'),
+            (9,9):(3,'l'),
+            (13,9):(3,'l'),
+
+            # double letter score
+            (3,0):(2,'l'),
+            (11,0):(2,'l'),
+            (6,2):(2,'l'),
+            (8,2):(2,'l'),
+            (0,3):(2,'l'),
+            (7,3):(2,'l'),
+            (14,3):(2,'l'),
+            (2,6):(2,'l'),
+            (6,6):(2,'l'),
+            (8,6):(2,'l'),
+            (12,6):(2,'l'),
+            (3,7):(2,'l'),
+            (11,7):(2,'l'),
+            (2,8):(2,'l'),
+            (6,8):(2,'l'),
+            (8,8):(2,'l'),
+            (12,8):(2,'l'),
+            (0, 11):(2,'l'),
+            (7,11):(2,'l'),
+            (14,11):(2,'l'),
+            (6,12):(2,'l'),
+            (8,12):(2,'l'),
+            (3,14):(2,'l'),
+            (11,14):(2,'l'),
+        }
+
         self.word_Q = []
         self.game_end = False
         self.score_board = {}
         self.__playboard = []
         self.players = []
 
-    def New_Game(self):
-        self.word_Q = self.Randomize_Letters()
+        # game flow vars
+        self.p1_went = False
+        self.p2_went = False
+        self.p3_went = False
+        self.p4_went = False
+        self.active = False
+    def New_Game(self, num_players=2):
+        self.word_Q = self.Build_Word_Q()
         self.Construct_Empty_Playboard()
         # TODO: UI function for selecting number of players
-        num_players = 2
         for person in range(0, num_players):
             # TODO: UI function get the name for the player
             name_entry = 'Player_' + str(person)
@@ -80,7 +155,7 @@ class Scrabble():
         for Player in self.players:
             need_tiles = True
             while need_tiles:
-                need_tiles = Player.Add_To_Inventory(self.word_Q.pop(0))
+                need_tiles = Player.Add_To_Inventory(self.Get_New_Letter())
 
     def Construct_Empty_Playboard(self):
         self.__playboard = []
@@ -103,7 +178,7 @@ class Scrabble():
         self.__playboard[y].pop([x])
         self.__playboard[y].insert(x, letter)
 
-    def Randomize_Letters(self):
+    def Build_Word_Q(self):
         positions = []
 
         high_roll = 0
@@ -140,15 +215,14 @@ class Scrabble():
     def Score_Current_Play(self):
         return
 
-    def Draw_Letters(self):
+    def Get_New_Letter(self):
         '''
-        Remove letters from the Queue and add them to the indicated players hand
+        get the letter from the end of the Q
         :param count:
         :return:
         '''
+        return self.word_Q.pop(0)
 
-
-        return
 
     def Play_Letters(self, letters=[], coords=[]):
         '''
@@ -186,7 +260,13 @@ class Scrabble():
 
 
     def Exchange_Letters(self, letters=[]):
-        return
+        out_letters = []
+        for letter in letters:
+            from_q = self.Get_New_Letter()
+            self.word_Q.append(letter)
+            out_letters.append(from_q)
+        random.shuffle(self.word_Q) # how convenient!
+        return out_letters
 
     def Enter_Players(self):
         return
@@ -205,24 +285,12 @@ class Scrabble():
         # coord: [multiplier, word/letter]
         grand_total = 0
         # TODO: Add all special tile multipliers
-        special_tiles = {
-            # triple word scores
-            [0,0]:[3,'w'],
-            [0,7]:[3,'w'],
-            [0,14]:[3,'w'],
-            [7, 14]: [3, 'w'],
-            [14,0]:[3,'w'],
-            [14, 7]: [3, 'w'],
-            [14,14]:[3,'w'],
-            [7,0]:[3,'w'],
 
-
-        }
         word_multiplier = [1]
         for letter, coord in zip(letters, coords):
             letter_value = self.letter_value[letter]
-            if coord in special_tiles.keys():
-                bonus = special_tiles[coord]
+            if coord in self.special_tiles.keys():
+                bonus = self.special_tiles[coord]
                 if bonus[1] == 'w':
                     word_multiplier.append(bonus[0])
                 elif bonus[1] == 'l':

@@ -3,6 +3,7 @@ import os
 
 import pygame
 from pygame.locals import *
+from network import Network
 
 import events
 import rules
@@ -34,8 +35,19 @@ class Global_Vars:
         self._FONT_COLOR = (35, 80, 97)
         self._HIGHLIGHT_COLOR = (190, 0, 0, 50)
         self._BG_COLOR = ()
-        self._TILE_COLOR = ()
-
+        self._TILE_COLOR = (224, 216, 180, 100)
+        self._3W_COLOR = (214, 51, 51)
+        self._2W_COLOR = (214, 51, 171)
+        self._3L_COLOR = (54, 51, 214)
+        self._2L_COLOR = (51, 179, 214)
+        self._special_color_dict = {
+            (3,'w'):self._3W_COLOR,
+            (2,'w'):self._2W_COLOR,
+            (3,'l'):self._3L_COLOR,
+            (2, 'l'):self._2L_COLOR
+        }
+    def get_special_color(self, code):
+        return self._special_color_dict[code]
     def get_tile_size(self):
         return self._TILE_SIZE
     def set_tile_size(self, val=32):
@@ -88,6 +100,9 @@ class Global_Vars:
 
     def get_font_color(self):
         return self._FONT_COLOR
+
+    def get_tile_color(self):
+        return self._TILE_COLOR
 
 Globals = Global_Vars()
 
@@ -241,7 +256,7 @@ class Tile(pygame.sprite.Sprite):
             self.position = position
             self.rect = self.surf.get_rect(topleft=self.position )
 
-        if type(image) == type(pygame.image):
+        if image is not None:
             self.set_image(image)
         else:
             self.image = None
@@ -254,7 +269,6 @@ class Tile(pygame.sprite.Sprite):
             image = pygame.transform.scale(image, (tile_size, tile_size))
             self.image = image
             self.surf.fill(self.color, special_flags=BLEND_MULT)
-            print("image was set!")
         return
 
 class SelectedTile(Tile):
@@ -290,54 +304,60 @@ class Inventory(pygame.sprite.Group):
     Can re-arrange tiles with mouse.
     Can click and drag tiles
     '''
-    def __init__(self, player):
+    def __init__(self, letters=[]):
         super().__init__()
         self.bounds_buffer = 20
         tile_size = Globals.get_tile_size()
         border_size = Globals.get_border_size()
         board_offset = Globals.get_board_offset()
         height = Globals.get_height()
-        width = Globals.get_width()
-        self.bounds = (tile_size+tile_size/4*7, tile_size*2)
-        position = (width/2, height - height/10)
-        self.player = player
+        width = 700
+        self.bounds = (tile_size+tile_size*7, tile_size*2) # x = 7 tiles wide with some buffer, y = 2 tiles tall
+        self.position = (width, (height - height/10)) # x = center, y = close to edge
         self.surf= pygame.surface.Surface(self.bounds)
         self.surf.fill((50,50,50,100))
-        self.rect = self.surf.get_rect(center=position)
-        self.reset_inventory()
+        self.rect = self.surf.get_rect(center=self.position)
+        self.reset_inventory(letters)
         
-        self.tile_order = {0:0, 1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7} # display of inventory doesn't change order in back end
 
-    def reset_inventory(self):
+    def reset_inventory(self, letters):
         self.empty()
-        inventory = self.get_tile_order()
-        for tile in inventory:
-            
-            self.add(Tile(image=IMAGES[tile], position=position))
+        for index, letter in enumerate(letters):
+            position = (self.position[0]+ index*(Globals.get_tile_size() + Globals.get_border_size()), self.position[1])
+            self.add(Tile(image=IMAGES.images[letter], position=position))
 
     def get_inventory(self):
         inventory = self.player.Get_Inventory()
         return inventory
 
+    def update(self, displaysurface):
+        for tile in self.sprites():
+            displaysurface.blit(tile.image, tile.rect)
+
 class GameBoard(pygame.sprite.Group):
     '''
     deletes all sprites in this group and regenerates them
     '''
-    def __init__(self):
+    def __init__(self, special_tiles):
         super().__init__()
         self.bounds_buffer = 20
         self.coords = game_instance.Get_Playboard()
         self.tileImages = Images()
-        self.reset_playboard()
+        self.reset_playboard(special_tiles)
 
-    def reset_playboard(self):
+    def reset_playboard(self, special_tiles):
         tile_size = Globals.get_tile_size()
         border_size = Globals.get_border_size()
         board_offset = Globals.get_board_offset()
         self.empty()
         for r_index, row in enumerate(self.coords):
             for c_index, column in enumerate(row):
-                tileSlot = Tile((c_index, r_index))
+                coord_code = (c_index,r_index)
+                if coord_code in special_tiles.keys():
+                    tile_color = Globals.get_special_color(special_tiles[coord_code])
+                else:
+                    tile_color = Globals.get_tile_color()
+                tileSlot = Tile((c_index, r_index), color=tile_color)
                 self.add(tileSlot)
         border_x = tile_size / border_size
         border_y = tile_size / border_size
@@ -478,7 +498,13 @@ def Sim(displaysurface, gameboard, game_instance):
     running = True
     selected_tile = SelectedTile((0, 0))
     FOCUS = None
+    p1 = game_instance.players[0]
+    player_inv = Inventory(p1.Get_Inventory())
     while running:
+        if game_instance.p1_went == True:
+            player_inv.reset_inventory(p1.Get_Inventory())
+            game_instance.p1_went = False
+
         for button in game_buttons:
             if button.rect.collidepoint(pygame.mouse.get_pos()):
                 button.hover()
@@ -539,6 +565,7 @@ def Sim(displaysurface, gameboard, game_instance):
             if event.type == QUIT:
                 pygame.quit()
                 sys.exit()
+
         #=== RENDER ===
         displaysurface.fill((0,0,0)) # bg (temp)
         # update Game Board Tiles
@@ -553,6 +580,7 @@ def Sim(displaysurface, gameboard, game_instance):
         for button in game_buttons:
             button.update(displaysurface)
 
+        player_inv.update(displaysurface)
         pygame.display.update()
         FramePerSec.tick(Globals.get_fps())
     return
@@ -570,7 +598,7 @@ pygame.display.set_caption("Scrabble")
 #setup pre-sim requirements
 game_instance = rules.Scrabble()
 game_instance.New_Game()
-game_board = GameBoard()
+game_board = GameBoard(game_instance.special_tiles)
 game_board.set_tile_letter((2, 2), 'e')
 
 game_buttons = pygame.sprite.Group()
@@ -582,7 +610,6 @@ all_sprites.add(game_board.sprites())
 all_sprites.add(game_buttons.sprites())
 
 # Game Loop
-
 while True:
     if Globals.get_game_mode() == 0:
         print("game mode is 0")
