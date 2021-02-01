@@ -130,21 +130,26 @@ class Scrabble():
         }
 
         self.word_Q = []
-        self.game_end = False
         self.score_board = {}
         self.__playboard = []
         self.players = []
 
         # game flow vars
+        self.active_player = 0
+        self.total_players = 2
         self.p1_went = False
         self.p2_went = False
         self.p3_went = False
         self.p4_went = False
         self.active = False
-    def New_Game(self, num_players=2):
+        self.game_end = False
+
+    def New_Game(self):
         self.word_Q = self.Build_Word_Q()
         self.Construct_Empty_Playboard()
         # TODO: UI function for selecting number of players
+
+    def Generate_Players(self, num_players=2):
         for person in range(0, num_players):
             # TODO: UI function get the name for the player
             name_entry = 'Player_' + str(person)
@@ -166,7 +171,7 @@ class Scrabble():
     def Get_Playboard(self):
         return self.__playboard
 
-    def Set_Letter_On_Playboard(self, letter='', coord = []):
+    def Set_Letter(self, letter='', coord = ()):
         '''
         Playboard accessed row (y) 1st, column (x) 2nd
         :param letter:
@@ -175,7 +180,7 @@ class Scrabble():
         '''
         x = coord[0]
         y = coord[1]
-        self.__playboard[y].pop([x])
+        self.__playboard[y].pop(x)
         self.__playboard[y].insert(x, letter)
 
     def Build_Word_Q(self):
@@ -207,10 +212,13 @@ class Scrabble():
 
         return
 
+    def Next_Turn(self):
+        self.active_player = self.active_player + 1 % self.total_players
+        return
+
     def Check_Word_Validity(self, letters=[]):
         # TODO: query a scrabble dictionary database online
-
-        return
+        return True
 
     def Score_Current_Play(self):
         return
@@ -223,40 +231,165 @@ class Scrabble():
         '''
         return self.word_Q.pop(0)
 
+    def Get_letter_from_playboard(self, coord):
+        x = coord[0]
+        y = coord[1]
+        return self.__playboard[y][x]
 
-    def Play_Letters(self, letters=[], coords=[]):
+    def Construct_word_fragment(self, starting_coords, search_direction):
+        search = True
+        word_fragment = ''
+        fragment_coords = []
+        coord = starting_coords
+        while search:
+            word_fragment = word_fragment + self.Get_letter_from_playboard(
+                coord)  # we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
+            fragment_coords.append(coord)
+            w_coord = self.Add_Coords(coord, (-1, 0))  # move west 1 more square
+            # test if moving one more square to the west is valid. if not, exit loop.
+            if coord[1] < 0:
+                search = False
+            if self.Get_letter_from_playboard(coord) == '':
+                search = False
+        return word_fragment, fragment_coords
+
+    def Detect_words(self, letter=None, coord=None):
         '''
-        Recursive.
-        Need to ensure placement of letters is unoccupied, and that any nearby words created are also valid plays
-        scoring algorithm per word: (letter*multiplier+letter*multiplier+...)*word_multiplier
+        Given a letter and its position on the board, look at each adjacent square on the board.
+        If there is a letter in any adjacent square, combine the letters into a word until you cant anymore.
+        Then, check in the opposite direction
         :param letters: A list of  each letter played this turn
         :param coords: A list of the [x,y] coords of each letter played
         :return: Int value of the play
         '''
         score = 0
 
-        for letter, coord in zip(letters, coords):
-            if self.__playboard[coord] != '':
-                # this spot is occupied by a letter. This is an invalid play
-                return 0
-            elif self.__playboard[self.Add_Coords(coord, [1, 0])] != '':
-                # get the letters in West  direction, construct word, and check if word is valid
-                pass
-            elif self.__playboard[self.Add_Coords(coord, [-1, 0])] != '':
-                # get the letters in East direction, construct word, and check if word is valid
-                pass
-            elif self.__playboard[self.Add_Coords(coord, [0, 1])] != '':
-                # get the letters in North direction, construct word, and check if word is valid
-                pass
-            elif self.__playboard[self.Add_Coords(coord, [0, -1])] != '':
-                # get the letters in South direction, construct word, and check if word is valid
-                pass
-            else:
-                # there are no letters near this new letter. No recursive scoring happens.
-                pass
+        n_coord = self.Add_Coords(coord, (0, 1))
+        if n_coord[1] <= 14:
+            n_letter = self.Get_letter_from_playboard(n_coord)
+        else:
+            n_letter = ''
 
-        score += self.Calculate_Score(letters = letters, coords = coords)
-        return score
+        s_coord = self.Add_Coords(coord, (0, -1))
+        if s_coord[1] >= 0:
+            s_letter = self.Get_letter_from_playboard(s_coord)
+        else:
+            s_letter = ''
+
+        w_coord = self.Add_Coords(coord, (-1, 0))
+        if w_coord[0] >= 0:
+            w_letter = self.Get_letter_from_playboard(w_coord)
+        else:
+            w_letter = ''
+
+        e_coord = self.Add_Coords(coord, (1, 0))
+        if e_coord[0] <= 14:
+            e_letter = self.Get_letter_from_playboard(e_coord)
+        else:
+            e_letter = ''
+
+        e_word_fragment = ''
+        e_fragment_coords = []
+
+        w_word_fragment = ''
+        w_fragment_coords = []
+
+        n_word_fragment = ''
+        n_fragment_coords = []
+
+        s_word_fragment = ''
+        s_fragment_coords = []
+
+        full_words = []
+        we_coords = []
+        ns_coords = []
+        full_words_coords = []
+
+        if w_letter != '':
+            # found a letter to the west. keep adding letters to "created_word until you can't anymore
+            w_search = True
+            while w_search:
+                w_word_fragment =  self.Get_letter_from_playboard(w_coord) + w_word_fragment# we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
+                w_fragment_coords.insert(0, w_coord)
+                w_coord = self.Add_Coords(w_coord, (-1,0)) # move west 1 more square
+                # test if moving one more square to the west is valid. if not, exit loop.
+                if w_coord[0] < 0:
+                    w_search = False
+                if self.Get_letter_from_playboard(w_coord) == '':
+                    w_search = False
+
+        if e_letter != '':
+            # get the letters in East direction, construct word, and check if word is valid
+            #e_word_fragment, e_fragment_coords = self.Construct_word_fragment(e_coord, (1,0))
+
+            e_search = True
+            while e_search:
+                e_word_fragment = e_word_fragment + self.Get_letter_from_playboard(e_coord) # we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
+                e_fragment_coords.append(e_coord)
+                e_coord = self.Add_Coords(e_coord, (1,0)) # move west 1 more square
+                # test if moving one more square to the west is valid. if not, exit loop.
+                if e_coord[0] > 14:
+                    e_search = False
+                    break
+                if self.Get_letter_from_playboard(e_coord) == '':
+                    e_search = False
+                    break
+
+        if n_letter != '':
+            # get the letters in North direction, construct word, and check if word is valid
+            n_search = True
+            while n_search:
+                n_word_fragment = self.Get_letter_from_playboard(n_coord) + n_word_fragment  # we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
+                n_fragment_coords.insert(0, n_coord)
+                n_coord = self.Add_Coords(n_coord, (0,1)) # move west 1 more square
+                # test if moving one more square to the west is valid. if not, exit loop.
+                if n_coord[0] > 14:
+                    n_search = False
+                    break
+                if self.Get_letter_from_playboard(n_coord) == '':
+                    n_search = False
+                    break
+
+
+            pass
+        if s_letter != '':
+            # get the letters in South direction, construct word, and check if word is valid
+            s_search = True
+            while s_search:
+                s_word_fragment =  s_word_fragment + self.Get_letter_from_playboard(s_coord) # we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
+                s_fragment_coords.append(s_coord)
+                s_coord = self.Add_Coords(s_coord, (0,-1)) # move west 1 more square
+                # test if moving one more square to the west is valid. if not, exit loop.
+                if s_coord[0] < 0:
+                    s_search = False
+                    break
+                if self.Get_letter_from_playboard(s_coord) == '':
+                    s_search = False
+                    break
+
+            pass
+
+        # combine any fragments form east to west to create 1 possible word
+        if len(e_word_fragment) or len(w_word_fragment):
+            full_words.append(w_word_fragment + letter + e_word_fragment)
+            we_coords.extend(w_fragment_coords)
+            we_coords.append(coord)
+            we_coords.extend(e_fragment_coords)
+
+            full_words_coords.append(we_coords)
+
+
+        # do the same for north to south
+        if len(n_word_fragment) or len(s_word_fragment):
+            full_words.append(n_word_fragment + letter + s_word_fragment)
+            ns_coords.extend(n_fragment_coords)
+            ns_coords.append(coord)
+            ns_coords.extend(s_fragment_coords)
+
+            full_words_coords.append(ns_coords)
+
+        return full_words, full_words_coords
+
 
 
     def Exchange_Letters(self, letters=[]):
@@ -274,7 +407,7 @@ class Scrabble():
     def End_Game(self):
         return
 
-    def Calculate_Score(self, letters = [], coords = []):
+    def Calculate_Score(self, word = '', coords = []):
         '''
         takes the board's multiplier spaces into account and calculates the resulting score for this word.
 
@@ -284,10 +417,9 @@ class Scrabble():
         '''
         # coord: [multiplier, word/letter]
         grand_total = 0
-        # TODO: Add all special tile multipliers
 
         word_multiplier = [1]
-        for letter, coord in zip(letters, coords):
+        for letter, coord in zip(word, coords):
             letter_value = self.letter_value[letter]
             if coord in self.special_tiles.keys():
                 bonus = self.special_tiles[coord]
@@ -304,14 +436,16 @@ class Scrabble():
 
         return grand_total
 
-    def Add_Coords(self, coord_1 = [], coord_2 = []):
+    def Add_Coords(self, coord_1 = (), coord_2 = ()):
         '''
         Vector Addition
         :param coord_1:
         :param coord_2:
         :return:
         '''
-        return [a+b for a,b in zip(coord_1, coord_2)]
+        x = coord_1[0] + coord_2[0]
+        y = coord_1[1] + coord_2[1]
+        return (x,y)
 
     def Construct_Word_String(self, letters = [], coords = []):
         '''
@@ -337,6 +471,7 @@ class Scrabble():
         :param coords:
         :return:
         '''
+
 
         return
 

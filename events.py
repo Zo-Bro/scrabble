@@ -14,3 +14,10 @@ test_button_e = pygame.USEREVENT + 9
 #main menu
 decrease_players_e = pygame.USEREVENT + 10
 increase_players_e = pygame.USEREVENT + 11
+
+on_hover_inv_e = pygame.USEREVENT + 12
+test_detect_word_e = pygame.USEREVENT + 13
+
+
+#placeholder event for the button class
+dummy_e = pygame.USEREVENT + 14

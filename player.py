@@ -1,11 +1,19 @@
 class Player(object):
     def __init__(self, name=''):
         self.name = name
-        self.__inventory = []
-        self.__score = 0
+        self._inventory = []
+        self._score = 0
+        self._ID =  0 # The unique number that identifies a player while online
+
+    def Set_ID(self, id_val):
+        self._ID = id_val
+        return
+
+    def Get_ID(self):
+        return self._ID
 
     def Get_Inventory(self):
-        return self.__inventory
+        return self._inventory
 
     def Add_To_Inventory(self, letter = str):
         '''
@@ -15,8 +23,8 @@ class Player(object):
         :param letter:
         :return:
         '''
-        if len(self.__inventory) + 1 <= 7:
-            self.__inventory.append(letter)
+        if len(self._inventory) + 1 <= 7:
+            self._inventory.append(letter)
             return True
         else:
             return False
@@ -29,10 +37,10 @@ class Player(object):
         :param index:
         :return:
         '''
-        return self.__inventory.pop(index)
+        return self._inventory.pop(index)
 
     def Increase_Score(self, points=int):
-        self.__score += points
+        self._score += points
 
     def Get_Score(self):
-        return self.__score
+        return self._score
