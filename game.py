@@ -30,6 +30,7 @@ class Global_Vars:
         self._GAME_MODE = 0
 
         # Colors
+        self._SELECTED_TILE_COLOR = (158, 235, 52)
         self._ACTIVE_COLOR = (218, 234, 240)
         self._INACTIVE_COLOR = (119, 155, 168)
         self._FONT_COLOR = (35, 80, 97)
@@ -46,10 +47,16 @@ class Global_Vars:
             (3,'l'):self._3L_COLOR,
             (2, 'l'):self._2L_COLOR
         }
+
+    def get_selected_tile_color(self):
+        return self._SELECTED_TILE_COLOR
+
     def get_special_color(self, code):
         return self._special_color_dict[code]
+
     def get_tile_size(self):
         return self._TILE_SIZE
+
     def set_tile_size(self, val=32):
         self._TILE_SIZE = val
 
@@ -74,6 +81,7 @@ class Global_Vars:
 
     def get_game_mode(self):
         return self._GAME_MODE
+
     def set_game_mode(self, val=0):
         if val in [0, 1, 2, 3]:
             self._GAME_MODE = val
@@ -109,14 +117,17 @@ Globals = Global_Vars()
 class Images():
     '''
     A container for all the images of letter tiles and score tiles to be used in sprites.
+    Also allows reverse lookup by the image instance
     '''
     def __init__(self):
         self.images = {}
+        self.letters = {}
         for root, dirs, files in os.walk("images"):
             for letter in files:
                 letter_name = os.path.splitext(letter)[0]
                 image = pygame.image.load(os.path.join(root, letter))
                 self.images[letter_name] = image
+                self.letters[image] = letter_name
 
 IMAGES = Images()
 
@@ -282,6 +293,8 @@ def invert_coord_y(coord):
     y = coord[1]
     y = 14 - y
     return (x, y)
+
+
 class Tile(pygame.sprite.Sprite):
     '''
     creates a rectangular sprite for each playable tile.
@@ -290,15 +303,15 @@ class Tile(pygame.sprite.Sprite):
     '''
     def __init__(self, coord=None, image=None, color=(224, 216, 180, 100), position=(0,0)):
         super().__init__()
+        tile_size = Globals.get_tile_size()
+        border_size = Globals.get_border_size()
+        board_offset = Globals.get_board_offset()
         self.surf = pygame.Surface((Globals.get_tile_size(),Globals.get_tile_size()))
         self.color = color
         if coord:
             coord = invert_coord_y(coord)
-            tile_size = Globals.get_tile_size()
-            border_size = Globals.get_border_size()
-            board_offset = Globals.get_board_offset()
-            border_x = tile_size/border_size *coord[0]
-            border_y = tile_size/border_size *coord[1]
+            border_x = tile_size / border_size * coord[0]
+            border_y = tile_size / border_size * coord[1]
             self.position = (tile_size * coord[0] + border_x + board_offset[0],
                              tile_size * coord[1]+ border_y + board_offset[1]) # y
             self.rect = self.surf.get_rect(topleft=self.position )
@@ -306,6 +319,10 @@ class Tile(pygame.sprite.Sprite):
         else:
             self.position = position
             self.rect = self.surf.get_rect(topleft=self.position )
+        self.selected_surf = pygame.Surface((tile_size + border_size*2, tile_size + border_size*2))
+        self.selected_surf.fill(Globals.get_selected_tile_color())
+        self.selected_rect = self.selected_surf.get_rect(
+            topleft=(self.position[0]-border_size, self.position[1] - border_size))
 
         if image is not None:
             self.set_image(image)
@@ -315,12 +332,25 @@ class Tile(pygame.sprite.Sprite):
 
     def set_image(self, image):
         tile_size = Globals.get_tile_size()
-
+        self.letter = IMAGES.letters[image]
         if image.get_size()[0] > tile_size or image.get_size()[1] > tile_size:
             image = pygame.transform.scale(image, (tile_size, tile_size))
             self.image = image
             self.surf.fill(self.color, special_flags=BLEND_MULT)
         return
+
+    def handle_event(self, event):
+        '''
+        if you click this tile, set a highlight around it and then return itself
+        :param event:
+        :return:
+        '''
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if self.rect.collidepoint(pygame.mouse.get_pos()):
+                    return True, self
+        return False, None
+
 
 class SelectedTile(Tile):
     def __init__(self, coord):
@@ -393,6 +423,7 @@ class Inventory(pygame.sprite.Group):
     def update(self, displaysurface):
         for tile in self.sprites():
             displaysurface.blit(tile.image, tile.rect)
+
 
 class GameBoard(pygame.sprite.Group):
     '''
@@ -557,36 +588,25 @@ def Sim(displaysurface, gameboard, game_model):
     :return:
     '''
     #=== SIM ===
-    # mouse hover over buttons test
     running = True
-    selected_tile = SelectedTile((0, 0))
-    selected_inv_tile = SelectedTile((0,0))
+    board_tile_select = SelectedTile((0, 0))
+    inv_tile_select = SelectedTile((0,0))
     focus = None
     focus_inv = None
+    active_inv_tile = None
+    active_board_tile = None
+    letters_played = []
+    coords_played = []
     p1 = game_model.players[0]
 
     player_inv = Inventory(p1.Get_Inventory())
 
-    # TEMP, detecting words test
-    detect_word_btn = Button("detect word", (800, 500), 100, 100, event=events.test_detect_word_e)
-    apple_played = 'apple'
-    coords = (7,7)
-    apple_coords = []
-    for index, letter in enumerate(apple_played):
-        game_model.Set_Letter(letter, (7 + index, 7))
-        gameboard.set_tile(letter, (7 + index, 7))
-        apple_coords.append((7+index, 7))
-    letters_played = 'ae'
-    latest_coords = [(8,8), (8,6)]
-    for letter, coord in zip(letters_played, latest_coords):
-        game_model.Set_Letter(letter, coord)
-        gameboard.set_tile(letter, coord)
-
-
     while running:
+        # update inventory if player just had their turn
         if game_model.p1_went == True:
             player_inv.reset_inventory(p1.Get_Inventory())
             game_model.p1_went = False
+
         # mouse hover over gameboard test
         if gameboard.rect.collidepoint(pygame.mouse.get_pos()): # only check if within board
             for entity in gameboard:
@@ -596,8 +616,10 @@ def Sim(displaysurface, gameboard, game_model):
                         pygame.event.post(pygame.event.Event(events.on_hover_e))
                         focus = entity
         else:
-            if not selected_tile.hidden:
-                selected_tile.hide()
+            if not board_tile_select.hidden:
+                board_tile_select.hide()
+
+        # mouse hover over inventory test
         if player_inv.rect.collidepoint(pygame.mouse.get_pos()):
             for entity in player_inv:
                 is_inv_hover = entity.rect.collidepoint(pygame.mouse.get_pos())
@@ -607,17 +629,37 @@ def Sim(displaysurface, gameboard, game_model):
                         focus_inv = entity
                         print("selected new entity!")
         else:
-            if not selected_inv_tile.hidden:
-                selected_inv_tile.hide()
+            if not inv_tile_select.hidden:
+                inv_tile_select.hide()
 
-        # === EVENTS ===
+        # ==============+
+        # === EVENTS ===|
+        # ==============+
+        if active_board_tile and active_inv_tile:
+            letters_played.append(active_inv_tile.letter)
+            coords_played.append(active_board_tile.coord)
+            game_model.Set_Letter(active_inv_tile.letter, invert_coord_y(active_board_tile.coord))
+            gameboard.set_tile(active_inv_tile.letter, invert_coord_y(active_board_tile.coord))
+            active_board_tile = None
+            active_inv_tile = None
+
         for event in pygame.event.get():
-            detect_word_btn.handle_event(event)
+            for entity in gameboard:
+                result, tile = entity.handle_event(event)
+                if result:
+                    active_board_tile = tile
+            # handle selecting a new inv tile
+            for entity in player_inv:
+                result, tile = entity.handle_event(event)
+                if result:
+                    active_inv_tile = tile
+
+            # handle a new word committed to board
             if event.type == events.test_detect_word_e:
                 all_unique_words_made = []
 
                 # for each letter played, find any words that it constructs
-                for letter, coord in zip(apple_played, apple_coords):
+                for letter, coord in zip(letters_played, coords_played):
                     full_words, full_words_coords = game_model.Detect_words(letter, coord)
 
                     # only keep a successfully constructed word the first time.
@@ -640,14 +682,10 @@ def Sim(displaysurface, gameboard, game_model):
                         print(word_coords[0])
 
 
-
-
-
-
             if event.type == events.on_hover_e:
-                selected_tile.move(coord=focus.coord)
+                board_tile_select.move(coord=focus.coord)
             if event.type == events.on_hover_inv_e:
-                selected_inv_tile.move(position=focus_inv.position)
+                inv_tile_select.move(position=focus_inv.position)
             if event.type == events.place_tile_e:
                 # hide tile from player inv
                 # update graphic on gameboard
@@ -687,17 +725,23 @@ def Sim(displaysurface, gameboard, game_model):
         displaysurface.fill((0,0,0)) # bg (temp)
         # update Game Board Tiles
         displaysurface.blit(gameboard.surf, gameboard.rect) #showing active bounds of board (temp)
+
         displaysurface.blit(player_inv.surf, player_inv.rect)
         if focus: #Selected tile
-            displaysurface.blit(selected_tile.surf, selected_tile.rect)
+            displaysurface.blit(board_tile_select.surf, board_tile_select.rect)
+        if active_board_tile:
+            displaysurface.blit(active_board_tile.selected_surf, active_board_tile.selected_rect)
+
         if focus_inv:
-            displaysurface.blit(selected_inv_tile.surf, selected_inv_tile.rect)
+            displaysurface.blit(inv_tile_select.surf, inv_tile_select.rect)
         for entity in gameboard:
             if entity.image:
                 displaysurface.blit(entity.image, entity.rect)
             else:
                 displaysurface.blit(entity.surf, entity.rect)
-        detect_word_btn.update(displaysurface)
+        #detect_word_btn.update(displaysurface)
+        if active_inv_tile:
+            displaysurface.blit(active_inv_tile.selected_surf, active_inv_tile.selected_rect)
         player_inv.update(displaysurface)
         pygame.display.update()
         FramePerSec.tick(Globals.get_fps())

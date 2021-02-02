@@ -135,6 +135,8 @@ class Scrabble():
         self.players = []
 
         # game flow vars
+        self.current_played_letters = []
+        self.current_played_coords = []
         self.active_player = 0
         self.total_players = 2
         self.p1_went = False
@@ -216,12 +218,15 @@ class Scrabble():
         self.active_player = self.active_player + 1 % self.total_players
         return
 
-    def Check_Word_Validity(self, letters=[]):
-        # TODO: query a scrabble dictionary database online
-        return True
-
-    def Score_Current_Play(self):
-        return
+    def Check_Word_Validity(self, word):
+        valid_word_text = '2019_word_list.txt'
+        valid_words = open(valid_word_text, 'r')
+        is_valid = False
+        for v_word in valid_words.readlines():
+            if v_word.rstrip('\n') == word.upper():
+                is_valid = True
+        valid_words.close()
+        return is_valid
 
     def Get_New_Letter(self):
         '''
@@ -235,23 +240,6 @@ class Scrabble():
         x = coord[0]
         y = coord[1]
         return self.__playboard[y][x]
-
-    def Construct_word_fragment(self, starting_coords, search_direction):
-        search = True
-        word_fragment = ''
-        fragment_coords = []
-        coord = starting_coords
-        while search:
-            word_fragment = word_fragment + self.Get_letter_from_playboard(
-                coord)  # we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
-            fragment_coords.append(coord)
-            w_coord = self.Add_Coords(coord, (-1, 0))  # move west 1 more square
-            # test if moving one more square to the west is valid. if not, exit loop.
-            if coord[1] < 0:
-                search = False
-            if self.Get_letter_from_playboard(coord) == '':
-                search = False
-        return word_fragment, fragment_coords
 
     def Detect_words(self, letter=None, coord=None):
         '''
@@ -306,28 +294,24 @@ class Scrabble():
         full_words_coords = []
 
         if w_letter != '':
-            # found a letter to the west. keep adding letters to "created_word until you can't anymore
             w_search = True
             while w_search:
-                w_word_fragment =  self.Get_letter_from_playboard(w_coord) + w_word_fragment# we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
+                w_word_fragment =  self.Get_letter_from_playboard(w_coord) + w_word_fragment
                 w_fragment_coords.insert(0, w_coord)
-                w_coord = self.Add_Coords(w_coord, (-1,0)) # move west 1 more square
-                # test if moving one more square to the west is valid. if not, exit loop.
+                w_coord = self.Add_Coords(w_coord, (-1,0))
                 if w_coord[0] < 0:
                     w_search = False
+                    break
                 if self.Get_letter_from_playboard(w_coord) == '':
                     w_search = False
+                    break
 
         if e_letter != '':
-            # get the letters in East direction, construct word, and check if word is valid
-            #e_word_fragment, e_fragment_coords = self.Construct_word_fragment(e_coord, (1,0))
-
             e_search = True
             while e_search:
-                e_word_fragment = e_word_fragment + self.Get_letter_from_playboard(e_coord) # we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
+                e_word_fragment = e_word_fragment + self.Get_letter_from_playboard(e_coord)
                 e_fragment_coords.append(e_coord)
-                e_coord = self.Add_Coords(e_coord, (1,0)) # move west 1 more square
-                # test if moving one more square to the west is valid. if not, exit loop.
+                e_coord = self.Add_Coords(e_coord, (1,0))
                 if e_coord[0] > 14:
                     e_search = False
                     break
@@ -336,13 +320,11 @@ class Scrabble():
                     break
 
         if n_letter != '':
-            # get the letters in North direction, construct word, and check if word is valid
             n_search = True
             while n_search:
-                n_word_fragment = self.Get_letter_from_playboard(n_coord) + n_word_fragment  # we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
+                n_word_fragment = self.Get_letter_from_playboard(n_coord) + n_word_fragment
                 n_fragment_coords.insert(0, n_coord)
-                n_coord = self.Add_Coords(n_coord, (0,1)) # move west 1 more square
-                # test if moving one more square to the west is valid. if not, exit loop.
+                n_coord = self.Add_Coords(n_coord, (0,1))
                 if n_coord[0] > 14:
                     n_search = False
                     break
@@ -353,13 +335,11 @@ class Scrabble():
 
             pass
         if s_letter != '':
-            # get the letters in South direction, construct word, and check if word is valid
             s_search = True
             while s_search:
-                s_word_fragment =  s_word_fragment + self.Get_letter_from_playboard(s_coord) # we do not append the original letter until the end, so it doesnt get double counted from both w and e frags
+                s_word_fragment =  s_word_fragment + self.Get_letter_from_playboard(s_coord)
                 s_fragment_coords.append(s_coord)
-                s_coord = self.Add_Coords(s_coord, (0,-1)) # move west 1 more square
-                # test if moving one more square to the west is valid. if not, exit loop.
+                s_coord = self.Add_Coords(s_coord, (0,-1))
                 if s_coord[0] < 0:
                     s_search = False
                     break
@@ -389,8 +369,6 @@ class Scrabble():
             full_words_coords.append(ns_coords)
 
         return full_words, full_words_coords
-
-
 
     def Exchange_Letters(self, letters=[]):
         out_letters = []
@@ -460,19 +438,6 @@ class Scrabble():
         :param coords:
         :return:
         '''
-        return
-
-    def Sense_Completed_Words(self, letters = [], coords = []):
-        '''
-        When a letter is placed, this event fires.
-        It creates a list of coords for each continuous line of words from N to S or W to E.
-
-        :param letters:
-        :param coords:
-        :return:
-        '''
-
-
         return
 
 

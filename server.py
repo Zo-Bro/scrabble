@@ -10,31 +10,15 @@ try:
 except socket.error as e:
     print(str(e))
 
-s.listen(2)
+s.listen(5)
 print("Server booted up. Waiting for connection...")
 
+connected = set()
+games = {}
+idCount = 0
 
 def threaded_connection(conn):
-    conn.send(str.encode("Connected"))
-    reply = ''
-    while True:
-        try:
-            data = conn.recv(2048)
-            reply = data.decode('utf-8')
-            if not data:
-                print("Disconnected. No data received from Client.")
-                break
-            else:
-                print("Received: ", reply)
-                print("Sending: ", reply)
-
-            conn.sendall(str.encode(reply))
-        except socket.error as e:
-            print(str(e))
-            break
-    print("Lost Connection")
-    conn.close()
-
+    pass
 
 while True:
     conn, addr = s.accept()

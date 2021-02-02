@@ -15,14 +15,15 @@ class Network:
     def Connect(self):
         try:
             self.client.connect(self.addr)
-            return self.client.recv(2048).decode()
+            return self.client.recv(2048).decode() # the very first thing we get is the actual player number.
         except:
             pass
 
     def send(self, data):
         try:
-            self.client.send(str.encode(data))
-            return self.client.recv(2048).decode()
+            self.client.send(str.encode(data)) # send data
+            in_data = self.client.recv(2048)
+            return pickle.loads(in_data)
         except socket.error as e:
             print(str(e))
 

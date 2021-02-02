@@ -21,3 +21,6 @@ test_detect_word_e = pygame.USEREVENT + 13
 
 #placeholder event for the button class
 dummy_e = pygame.USEREVENT + 14
+
+server_start_e = pygame.USEREVENT + 15
+connect_to_server_e = pygame.USEREVENT + 16
