@@ -1,11 +1,12 @@
 import random
 import player as player_
 class DataPacket():
-    def __init__(self, cmd='get', letters_played=[], coords_played=[]):
+    def __init__(self, cmd='get', mode=1, letters_played=[], coords_played=[], player_id=None):
         self.cmd = cmd
+        self.mode = mode # 1 == set letters, # 0 == exchange letters
         self.letters_played = letters_played
         self.coords_played = coords_played
-        self.player_id = None
+        self.player_id = player_id
 
 class Scrabble():
     def __init__(self):
@@ -137,18 +138,21 @@ class Scrabble():
         self.word_Q = []
         self.score_board = {}
         self.__playboard = []
+        self.__temp_playboard = []
         self.players = {} #key == player.ID: value == Player() object
 
         # game flow vars
         self.current_played_letters = []
         self.current_played_coords = []
-        self.active_player = '0' # the id of the active player
+        self.active_player = '1' # the id of the active player
         self.total_players = 2
-        self.active = False
         self.game_end = False
         self.game_start = False
 
-    def New_Game(self):
+    def New_Game(self, max_players):
+        self.total_players = max_players
+        self.active_player = '1'
+        self.last_active_player = '0'
         self.word_Q = self.Build_Word_Q()
         self.Construct_Empty_Playboard()
         # TODO: UI function for selecting number of players
@@ -167,6 +171,9 @@ class Scrabble():
             while need_tiles:
                 need_tiles = Player.Add_To_Inventory(self.Get_New_Letter())
 
+    def Reset_Temp_Playboard(self):
+        self.__temp_playboard = self.__playboard
+
     def Construct_Empty_Playboard(self):
         self.__playboard = []
         for x in range(0, 15):
@@ -176,17 +183,23 @@ class Scrabble():
     def Get_Playboard(self):
         return self.__playboard
 
-    def Set_Letter(self, letter='', coord = ()):
+    def Set_Letter(self, letter='', coord = (), temp=False):
         '''
         Playboard accessed row (y) 1st, column (x) 2nd
         :param letter:
         :param coord:
         :return:
         '''
-        x = coord[0]
-        y = coord[1]
-        self.__playboard[y].pop(x)
-        self.__playboard[y].insert(x, letter)
+        if temp:
+            x = coord[0]
+            y = coord[1]
+            self.__temp_playboard[y].pop(x)
+            self.__temp_playboard[y].insert(x, letter)
+        else:
+            x = coord[0]
+            y = coord[1]
+            self.__playboard[y].pop(x)
+            self.__playboard[y].insert(x, letter)
 
     def Build_Word_Q(self):
         positions = []
@@ -226,10 +239,19 @@ class Scrabble():
         # criteria for advancing the next turn:
         # if Trading letters:
         # No criteria
+        success = False
+        self.Reset_Temp_Playboard()
         if data_packet.mode == 0: # trading letters
             new_letters = self.Exchange_Letters(data_packet.letters_played)
             self.active_player.Exchange_letters(data_packet.letters_played, new_letters)
-            return False
+            self.last_active_player = self.active_player
+            if int(self.active_player) + 1 > self.total_players:
+                self.active_player = '1'
+            else:
+                self.active_player = str(int(self.active_player) + 1)
+
+            success = True
+            return success
         else: # attempting to commit a play
             # if Playing at least 1 letter:
             # 1) the letters played are all adjacent to one another
@@ -239,7 +261,10 @@ class Scrabble():
 
             all_unique_words_made = []
 
-            # for each letter played, find any words that it constructs
+            # for each letter played, add it to a temp playboard
+            for letter, coord in zip(data_packet.letters_played, data_packet.coords_played):
+                self.Set_Letter(letter, coord, temp=True)
+            # for each letter played, see if it constructs any words on the temp playboard (now accounting for if a word is JUST new letters)
             for letter, coord in zip(data_packet.letters_played, data_packet.coords_played):
                 full_words, full_words_coords = self.Detect_words(letter, coord)
 
@@ -266,9 +291,23 @@ class Scrabble():
                     coords = word_and_coords[1]
                     for letter, coord in zip(word, coords):
                         self.Set_Letter(letter, coord)
-                return True
+
+                self.players[self.active_player].Increase_Score(score)
+                success = True
             else:
-                return False
+                pass
+
+            # reload inventory if needed
+            needs_tiles = len(self.players[self.active_player].Get_Inventory()) < 7
+            while needs_tiles:
+                needs_tiles = self.players[self.active_player].Add_to_Inventory(self.Get_New_Letter())
+            self.last_active_player = self.active_player
+            if int(self.active_player) + 1 > self.total_players:
+                self.active_player = '1'
+            else:
+                self.active_player = str(int(self.active_player) + 1)
+            return success
+
     def Check_Word_Validity(self, word):
         valid_word_text = '2019_word_list.txt'
         valid_words = open(valid_word_text, 'r')
@@ -288,10 +327,13 @@ class Scrabble():
         return self.word_Q.pop(0)
 
 
-    def Get_letter_from_playboard(self, coord):
+    def Get_letter_from_playboard(self, coord, temp=False):
         x = coord[0]
         y = coord[1]
-        return self.__playboard[y][x]
+        if temp:
+            return self.__temp_playboard[y][x]
+        else:
+            return self.__playboard[y][x]
 
     def Detect_playable_spots(self):
         '''
@@ -350,28 +392,29 @@ class Scrabble():
         :return: full_words_coords[list]: each element is a list of coords that the word with the same element in full_words occupies
          '''
         score = 0
+        temp_playboard = self.Get_Playboard()
 
         n_coord = self.Add_Coords(coord, (0, 1))
         if n_coord[1] <= 14:
-            n_letter = self.Get_letter_from_playboard(n_coord)
+            n_letter = self.Get_letter_from_playboard(n_coord, temp=True)
         else:
             n_letter = ''
 
         s_coord = self.Add_Coords(coord, (0, -1))
         if s_coord[1] >= 0:
-            s_letter = self.Get_letter_from_playboard(s_coord)
+            s_letter = self.Get_letter_from_playboard(s_coord, temp=True)
         else:
             s_letter = ''
 
         w_coord = self.Add_Coords(coord, (-1, 0))
         if w_coord[0] >= 0:
-            w_letter = self.Get_letter_from_playboard(w_coord)
+            w_letter = self.Get_letter_from_playboard(w_coord, temp=True)
         else:
             w_letter = ''
 
         e_coord = self.Add_Coords(coord, (1, 0))
         if e_coord[0] <= 14:
-            e_letter = self.Get_letter_from_playboard(e_coord)
+            e_letter = self.Get_letter_from_playboard(e_coord, temp=True)
         else:
             e_letter = ''
 
@@ -395,39 +438,39 @@ class Scrabble():
         if w_letter != '':
             w_search = True
             while w_search:
-                w_word_fragment =  self.Get_letter_from_playboard(w_coord) + w_word_fragment
+                w_word_fragment =  self.Get_letter_from_playboard(w_coord, temp=True) + w_word_fragment
                 w_fragment_coords.insert(0, w_coord)
                 w_coord = self.Add_Coords(w_coord, (-1,0))
                 if w_coord[0] < 0:
                     w_search = False
                     break
-                if self.Get_letter_from_playboard(w_coord) == '':
+                if self.Get_letter_from_playboard(w_coord, temp=True) == '':
                     w_search = False
                     break
 
         if e_letter != '':
             e_search = True
             while e_search:
-                e_word_fragment = e_word_fragment + self.Get_letter_from_playboard(e_coord)
+                e_word_fragment = e_word_fragment + self.Get_letter_from_playboard(e_coord, temp=True)
                 e_fragment_coords.append(e_coord)
                 e_coord = self.Add_Coords(e_coord, (1,0))
                 if e_coord[0] > 14:
                     e_search = False
                     break
-                if self.Get_letter_from_playboard(e_coord) == '':
+                if self.Get_letter_from_playboard(e_coord, temp=True) == '':
                     e_search = False
                     break
 
         if n_letter != '':
             n_search = True
             while n_search:
-                n_word_fragment = self.Get_letter_from_playboard(n_coord) + n_word_fragment
+                n_word_fragment = self.Get_letter_from_playboard(n_coord, temp=True) + n_word_fragment
                 n_fragment_coords.insert(0, n_coord)
                 n_coord = self.Add_Coords(n_coord, (0,1))
                 if n_coord[0] > 14:
                     n_search = False
                     break
-                if self.Get_letter_from_playboard(n_coord) == '':
+                if self.Get_letter_from_playboard(n_coord, temp=True) == '':
                     n_search = False
                     break
 
@@ -436,13 +479,13 @@ class Scrabble():
         if s_letter != '':
             s_search = True
             while s_search:
-                s_word_fragment =  s_word_fragment + self.Get_letter_from_playboard(s_coord)
+                s_word_fragment =  s_word_fragment + self.Get_letter_from_playboard(s_coord, temp=True)
                 s_fragment_coords.append(s_coord)
                 s_coord = self.Add_Coords(s_coord, (0,-1))
                 if s_coord[0] < 0:
                     s_search = False
                     break
-                if self.Get_letter_from_playboard(s_coord) == '':
+                if self.Get_letter_from_playboard(s_coord, temp=True) == '':
                     s_search = False
                     break
 
@@ -477,9 +520,6 @@ class Scrabble():
             out_letters.append(from_q)
         random.shuffle(self.word_Q) # how convenient!
         return out_letters
-
-    def Enter_Players(self):
-        return
 
     def End_Game(self):
         return
@@ -523,21 +563,6 @@ class Scrabble():
         x = coord_1[0] + coord_2[0]
         y = coord_1[1] + coord_2[1]
         return (x,y)
-
-    def Construct_Word_String(self, letters = [], coords = []):
-        '''
-        given the letters and their coordinates in any order,
-        create a word by putting the letters in order from either N > S or W > E
-        If letters are not in this vector, reject the placement.
-
-        Can I use vector math to calculate this easily?
-
-
-        :param letters:
-        :param coords:
-        :return:
-        '''
-        return
 
 
 

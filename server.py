@@ -21,20 +21,23 @@ class Server:
         # one of these continuously runs for each new connection. It runs forever.
         conn.send(str.encode(str(current_player))) # when you first connect to the server, you recieve your player number
         name = conn.recv(2048).decode()
-        self.game_model.players[str(current_player)].set_name(name)
-
+        player = self.game_model.players[str(current_player)]
+        player.set_name(name)
+        needs_tiles = len(player.Get_Inventory()) < 7
+        while needs_tiles:
+            print("Giving a tile to the player")
+            needs_tiles = player.Add_To_Inventory(self.game_model.Get_New_Letter())
+        self.game_model.players[str(current_player)] = player
         reply = ''
         while True:
             # when player is inactive, just send the game model.
             in_data = conn.recv(4096) # client sends a DataPacket() with a command, such as "get", "commit turn"
-            print("server rcv data")
             in_data = pickle.loads(in_data)
             if not in_data:
                 break
             else:
                 if in_data.cmd == 'commit':
-                    print("server reads COMMIT")
-                    if str(current_player == game_model.active_player):
+                    if str(current_player) == self.game_model.active_player:
                         result = self.game_model.Process_Turn(in_data) # apply the turn using the data received from
                         #ToDo: Handle when a player makes an illegal play (skip their turn and dont place their tiles on teh board)
                         if result == True:
@@ -44,7 +47,6 @@ class Server:
                             reply = self.game_model
 
                 elif in_data.cmd == 'get':
-                    print("server reads GET")
                     reply = self.game_model #
             conn.send(pickle.dumps(reply))
         pass
@@ -52,7 +54,7 @@ class Server:
     def boot_up(self, max_players):
         self.socket.listen(5)
         print("Server booted up. Waiting for connection...")
-        self.game_model.total_players = max_players
+        self.game_model.New_Game(max_players)
         idCount = 0
         while True:
             conn, addr = self.socket.accept() # the code never goes past here until a new connection is established
