@@ -1,16 +1,27 @@
+
 class Player(object):
-    def __init__(self, name=''):
-        self.name = name
+    def __init__(self, id):
+        self.name = None
         self._inventory = []
         self._score = 0
-        self._ID =  0 # The unique number that identifies a player while online
+        self._ID =  id # The unique number that identifies a player while online
+        self.name_plate = None
 
-    def Set_ID(self, id_val):
+    def set_ID(self, id_val):
         self._ID = id_val
         return
 
     def Get_ID(self):
         return self._ID
+
+    def set_name(self, name):
+        self.name = name
+        return
+
+    def set_name_plate(self, name_plate):
+        self.name_plate = name_plate
+        self.name_plate.set_name(self.name)
+        return
 
     def Get_Inventory(self):
         return self._inventory
@@ -29,7 +40,7 @@ class Player(object):
         else:
             return False
 
-    def Spend_Letter(self, index=int):
+    def Spend_Letters(self, letters=[]):
         '''
         This removes the letter from the inventory,
         so it should only be called when the play has been
@@ -37,7 +48,15 @@ class Player(object):
         :param index:
         :return:
         '''
-        return self._inventory.pop(index)
+        for letter in letters:
+            index = letters.index(letter)
+            self._inventory.pop(index)
+        return
+
+    def Exchange_Letters(self, letters_to_remove, letters_to_add):
+        for letter in letters_to_remove:
+            self._inventory.remove(letter)
+        self._inventory.extend(letters_to_add)
 
     def Increase_Score(self, points=int):
         self._score += points

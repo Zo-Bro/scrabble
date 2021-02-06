@@ -1,27 +1,67 @@
 import socket
 from _thread import *
+import rules
+from player import Player
+import pickle
+class Server:
 
-server = '192.168.1.9'  # local
-port = 5555
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def __init__(self, port=5555, max_players=4):
+        self.port = 5555
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        host_name = socket.gethostname()
+        self.server = socket.gethostbyname(host_name)
+        self.game_model = rules.Scrabble()
+        try:
+            self.socket.bind((self.server, port))
+        except socket.error as e:
+            print(str(e))
 
-try:
-    s.bind((server, port))
-except socket.error as e:
-    print(str(e))
 
-s.listen(5)
-print("Server booted up. Waiting for connection...")
+    def threaded_connection(self, conn, current_player):
+        # one of these continuously runs for each new connection. It runs forever.
+        conn.send(str.encode(str(current_player))) # when you first connect to the server, you recieve your player number
+        name = conn.recv(2048).decode()
+        self.game_model.players[str(current_player)].set_name(name)
 
-connected = set()
-games = {}
-idCount = 0
+        reply = ''
+        while True:
+            # when player is inactive, just send the game model.
+            in_data = conn.recv(4096) # client sends a DataPacket() with a command, such as "get", "commit turn"
+            print("server rcv data")
+            in_data = pickle.loads(in_data)
+            if not in_data:
+                break
+            else:
+                if in_data.cmd == 'commit':
+                    print("server reads COMMIT")
+                    if str(current_player == game_model.active_player):
+                        result = self.game_model.Process_Turn(in_data) # apply the turn using the data received from
+                        #ToDo: Handle when a player makes an illegal play (skip their turn and dont place their tiles on teh board)
+                        if result == True:
+                           # self.game_model.active_player = str(int(self.game_model.active_player))
+                            reply = self.game_model
+                        else:
+                            reply = self.game_model
 
-def threaded_connection(conn):
-    pass
+                elif in_data.cmd == 'get':
+                    print("server reads GET")
+                    reply = self.game_model #
+            conn.send(pickle.dumps(reply))
+        pass
 
-while True:
-    conn, addr = s.accept()
-    print("Server has accepted connection from: ", addr)
+    def boot_up(self, max_players):
+        self.socket.listen(5)
+        print("Server booted up. Waiting for connection...")
+        self.game_model.total_players = max_players
+        idCount = 0
+        while True:
+            conn, addr = self.socket.accept() # the code never goes past here until a new connection is established
+            print("Server has accepted connection from: ", addr)
+            idCount += 1
+            self.game_model.players[str(idCount)] = Player(str(idCount))
+            start_new_thread(self.threaded_connection, (conn, idCount,))
 
-    start_new_thread(threaded_connection, (conn,))
+if __name__ == '__main__':
+    game_model = rules.Scrabble()
+    ip_address = '192.168.1.11'
+    Server(ip_address, 555, 4, game_model)

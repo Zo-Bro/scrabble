@@ -1,6 +1,8 @@
 # Ignore All except requirements.txt
+/images/*
 /venv/Scripts/*
 !/venv/Scripts/requirements.txt
 /venv/Lib/*
 /venv/Include/*
 /venv/pyvenv.cfg
+

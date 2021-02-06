@@ -24,3 +24,4 @@ dummy_e = pygame.USEREVENT + 14
 
 server_start_e = pygame.USEREVENT + 15
 connect_to_server_e = pygame.USEREVENT + 16
+cancel_server_e = pygame.USEREVENT + 17
