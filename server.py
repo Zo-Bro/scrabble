@@ -38,6 +38,7 @@ class Server:
             else:
                 if in_data.cmd == 'commit':
                     if str(current_player) == self.game_model.active_player:
+
                         result = self.game_model.Process_Turn(in_data) # apply the turn using the data received from
                         #ToDo: Handle when a player makes an illegal play (skip their turn and dont place their tiles on teh board)
                         if result == True:

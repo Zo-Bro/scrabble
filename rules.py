@@ -1,4 +1,6 @@
 import random
+from itertools import combinations
+
 import player as player_
 class DataPacket():
     def __init__(self, cmd='get', mode=1, letters_played=[], coords_played=[], player_id=None):
@@ -172,7 +174,14 @@ class Scrabble():
                 need_tiles = Player.Add_To_Inventory(self.Get_New_Letter())
 
     def Reset_Temp_Playboard(self):
-        self.__temp_playboard = self.__playboard
+        self.__temp_playboard = []
+        for x in range(0, 15):
+            row = ['' for y in range(0, 15)]
+            self.__temp_playboard.append(row)
+        for y in range(0, 15):
+            for x in range(0,15):
+                self.__temp_playboard[y].pop(x)
+                self.__temp_playboard[y].insert(x, self.Get_letter_from_playboard((x,y)))
 
     def Construct_Empty_Playboard(self):
         self.__playboard = []
@@ -190,7 +199,7 @@ class Scrabble():
         :param coord:
         :return:
         '''
-        if temp:
+        if temp == True:
             x = coord[0]
             y = coord[1]
             self.__temp_playboard[y].pop(x)
@@ -230,6 +239,10 @@ class Scrabble():
 
         return
 
+    def Validate_Turn(self, data_packet):
+        '''calculates the turn, and then sends to the server'''
+        #
+
     def Process_Turn(self, data_packet):
         '''
 
@@ -262,6 +275,9 @@ class Scrabble():
             all_unique_words_made = []
 
             # for each letter played, add it to a temp playboard
+            # ensure all letters played are in a straight line:
+
+
             for letter, coord in zip(data_packet.letters_played, data_packet.coords_played):
                 self.Set_Letter(letter, coord, temp=True)
             # for each letter played, see if it constructs any words on the temp playboard (now accounting for if a word is JUST new letters)
@@ -291,21 +307,25 @@ class Scrabble():
                     coords = word_and_coords[1]
                     for letter, coord in zip(word, coords):
                         self.Set_Letter(letter, coord)
-
                 self.players[self.active_player].Increase_Score(score)
+                self.players[self.active_player].Spend_Letters(data_packet.letters_played)
                 success = True
             else:
+                print("Did not set letters")
                 pass
 
             # reload inventory if needed
             needs_tiles = len(self.players[self.active_player].Get_Inventory()) < 7
             while needs_tiles:
-                needs_tiles = self.players[self.active_player].Add_to_Inventory(self.Get_New_Letter())
+                needs_tiles = self.players[self.active_player].Add_To_Inventory(self.Get_New_Letter())
             self.last_active_player = self.active_player
+
             if int(self.active_player) + 1 > self.total_players:
                 self.active_player = '1'
+                print("Active Player is hard set to 1")
             else:
                 self.active_player = str(int(self.active_player) + 1)
+                print("Active Player is: " + self.active_player)
             return success
 
     def Check_Word_Validity(self, word):
@@ -335,14 +355,33 @@ class Scrabble():
         else:
             return self.__playboard[y][x]
 
-    def Detect_playable_spots(self):
+    def Detect_playable_spots(self, coords_played = []):
         '''
         returns a list of coordinates that are valid places to place a tile.
         :return:
         '''
         required_spots = [] # one slot of the newly played tiles MUST be in this list (of open spots next to played tiles)
         open_spots = []
-        for y, column in enumerate(self.__playboard):
+        self.Reset_Temp_Playboard()
+        if len(coords_played) == 1:
+            x = coords_played[0][0]
+            y = coords_played[0][1]
+            eastern = (x + 1, y)
+            western = (x - 1, y)
+            northern = (x, y + 1)
+            southern = (x, y - 1)
+            if self.Get_letter_from_playboard(eastern) == '':
+                required_spots.append(eastern)
+            if self.Get_letter_from_playboard(western) == '':
+                required_spots.append(western)
+            if self.Get_letter_from_playboard(northern) == '':
+                required_spots.append(northern)
+            if self.Get_letter_from_playboard(southern) == '':
+                required_spots.append(southern)
+            return open_spots, required_spots
+        for coord in coords_played:
+            self.Set_Letter('_', coord, temp=True)
+        for y, column in enumerate(self.__temp_playboard):
             for x, value in enumerate(column):
                 # get all open spots
                 # test required spots
@@ -352,33 +391,48 @@ class Scrabble():
                 southern = (x, y-1)
                 if value != '': # spot has a tile. test if adjacent tiles are empty
                     required = False
-                    if x!= 14 and self.Get_letter_from_playboard(eastern) == '': # test east
+                    if x!= 14 and self.Get_letter_from_playboard(eastern, temp=True) == '': # test east
                         if eastern not in required_spots:
                             required_spots.append(eastern)
                             required = True
-                    if x != 0 and self.Get_letter_from_playboard(western) == '': # test west
+                    if x != 0 and self.Get_letter_from_playboard(western, temp=True) == '': # test west
                         if western not in required_spots:
                             required_spots.append(western)
                             required = True
 
-                    if y != 14 and self.Get_letter_from_playboard(northern) == '':
+                    if y != 14 and self.Get_letter_from_playboard(northern, temp=True) == '':
                         if northern not in required_spots:
                             required_spots.append(northern)
                             required = True
 
-                    if y != 0 and self.Get_letter_from_playboard(southern) == '':
+                    if y != 0 and self.Get_letter_from_playboard(southern, temp=True) == '':
                         if southern not in required_spots:
                             required_spots.append(southern)
                             required = True
 
 
-                    if self.Get_letter_from_playboard((x, y)) == '' and not required:
+                    if self.Get_letter_from_playboard((x, y), temp=True) == '' and not required:
                         if (x, y) not in open_spots:
                             open_spots.append((x, y))
 
-        #open_set = set(open_spots)
-        #req_set = set(required_spots)
-        #req_set.
+        # required_spots is currently a list of all coords adjacent existing letters.
+        # if the player has put down 2 tiles, then we get rid of all required spots that are not in their shared row/column
+        spots_to_remove = []
+        if len(coords_played) >= 2:
+            x1, x2 = coords_played[0][0], coords_played[1][0]
+            y1, y2 = coords_played[0][1], coords_played[1][1]
+            if x1 == x2:
+                for coord in required_spots:
+                    if coord[0] != x1:
+                        spots_to_remove.append(coord)
+            elif y1 == y2:
+                for coord in required_spots:
+                    if coord[1] != y1:
+                        spots_to_remove.append(coord)
+            else:
+                print("WE HAVE 2 OR MORE LETTERS PLAYED ON THE BOARD, BUT THEY ARE NOT IN A STRAIGHT LINE. SOMETHING IS WRONG.")
+            for coord in spots_to_remove:
+                required_spots.remove(coord)
         return open_spots, required_spots
 
     def Detect_words(self, letter=None, coord=None):

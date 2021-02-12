@@ -1,3 +1,10 @@
+from uuid import uuid4
+class Letter:
+    def __init__(self, letter):
+        self.letter = letter
+        self.uuid = uuid4()
+    def __str__(self):
+        return self.letter
 
 class Player(object):
     def __init__(self, id):
@@ -8,7 +15,7 @@ class Player(object):
         self.name_plate = None
 
     def set_ID(self, id_val):
-        self._ID = id_val
+        self._ID = str(id_val)
         return
 
     def Get_ID(self):
@@ -35,7 +42,7 @@ class Player(object):
         :return:
         '''
         if len(self._inventory) + 1 <= 7:
-            self._inventory.append(letter)
+            self._inventory.append(Letter(letter))
             return True
         else:
             return False
@@ -49,7 +56,10 @@ class Player(object):
         :return:
         '''
         for letter in letters:
-            index = letters.index(letter)
+            for invLetter in self._inventory:
+                if letter == invLetter.letter:
+                    index = self._inventory.index(invLetter)
+                    break
             self._inventory.pop(index)
         return
 
