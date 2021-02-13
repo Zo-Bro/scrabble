@@ -28,7 +28,7 @@ class Network:
     def send(self, data):
         try:
             self.client.send(pickle.dumps(data)) # send data
-            in_data = self.client.recv(4096)
+            in_data = self.client.recv(8192)
             return pickle.loads(in_data)
         except socket.error as e:
             print(str(e))

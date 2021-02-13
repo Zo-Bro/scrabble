@@ -31,7 +31,7 @@ class Server:
         reply = ''
         while True:
             # when player is inactive, just send the game model.
-            in_data = conn.recv(4096) # client sends a DataPacket() with a command, such as "get", "commit turn"
+            in_data = conn.recv(8192) # client sends a DataPacket() with a command, such as "get", "commit turn"
             in_data = pickle.loads(in_data)
             if not in_data:
                 break

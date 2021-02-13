@@ -32,6 +32,11 @@ class Player(object):
 
     def Get_Inventory(self):
         return self._inventory
+    def Get_Inventory_UUIDs(self):
+        uuids = []
+        for item in self._inventory:
+            uuids.append(str(item.uuid))
+        return uuids
 
     def Add_To_Inventory(self, letter = str):
         '''
