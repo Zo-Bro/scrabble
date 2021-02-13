@@ -27,7 +27,7 @@ class GlobalVars:
         # Board Dimensions
         self._TILE_SIZE = 32
         self._BORDER_SIZE = 4
-        self._BOARD_OFFSET = (50, 100)
+        self._BOARD_OFFSET = (450, 25)
 
         # Font
         self._FONT = 'Cambria'
@@ -166,8 +166,7 @@ class Images:
                 num_name = num_name.rsplit('_')[0]
                 num_name = num_name.lstrip('0')
                 image = pygame.image.load(os.path.join(root, number))
-                self.letters[num_name] = image
-                self.letter_img[image] = num_name
+                self.numbers[num_name] = image
         for root, dirs, files in os.walk(r"images\bgs"):
             for item in files:
                 item_name = os.path.splitext(item)[0]
@@ -535,7 +534,9 @@ class RoundButton(pygame.sprite.Sprite):
         new_size = (int(image_size[0]*scale), int(image_size[1]*scale))
         self.up_img = pygame.transform.smoothscale(self.up_img, new_size)
         self.h_img = self.up_img.copy()
-        self.h_img.fill((20,20,20), special_flags=pygame.BLEND_ADD)
+        self.h_img.fill((70,70,70), special_flags=pygame.BLEND_ADD)
+        self.inactive_img = self.up_img.copy()
+        self.inactive_img.fill((20,20,20), special_flags=pygame.BLEND_MULT)
         self.rect = self.up_img.get_rect(center=self.position)
 
     def hide(self, hide_bool=True):
@@ -544,7 +545,7 @@ class RoundButton(pygame.sprite.Sprite):
     def update(self, display_surface, active=True):
         if not self._hidden:
             if not active:
-                self.inactive()
+                display_surface.blit(self.inactive_img, self.rect)
             elif self.rect.collidepoint(pygame.mouse.get_pos()):
                 self.hover()
             else:
@@ -572,7 +573,7 @@ class RoundButton(pygame.sprite.Sprite):
     def inactive(self):
         if self.state != 'inactive':
             self.state = 'inactive'
-            self.surf.fill(Globals.get_inactive_color())
+
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -606,7 +607,7 @@ def invert_coord_y(coord):
     return x, y
 
 class Window:
-    def __init__(self, position=(0,0), width=100, height=100, color='blue'):
+    def __init__(self, position=(0,0), width=300, height=500, color='blue'):
         self.pos = position
         self.width = width
         self.height = height
@@ -618,7 +619,7 @@ class Window:
     def update(self):
         pass
 
-class NormalWindow(Window):
+class WindowNormal(Window):
     def __init__(self, position=(0,0), width=100, height=100, color='blue'):
         super().__init__(position, width, height, color)
     def add_vector(self, coord_1 = (), coord_2 = ()):
@@ -657,17 +658,6 @@ class NormalWindow(Window):
         self.sizes = []
         for item in self.images:
             self.sizes.append(item.get_size())
-        #t_l_size = self.t_l_img.get_size()
-        #t_c_size = self.t_c_img.get_size()
-        #t_r_size = self.t_r_img.get_size()
-
-        #l_c_size = self.l_c_img.get_size()
-        #c_size = self.c_img.get_size()
-        #r_c_size = self.r_c_img.get_size()
-
-        #b_l_size = self.b_l_img.get_size()
-        #b_c_size = self.b_c_img.get_size()
-        #b_r_size = self.b_r_img.get_size()
 
         #resize middle parts of edges, and center
         corner_w = self.sizes[0][0]
@@ -736,25 +726,120 @@ class NormalWindow(Window):
                       l_c_rect, c_rect, r_c_rect,
                       b_l_rect, b_c_rect, b_r_rect]
 
-        # positions of each
-        '''
-        self.images.append(self.t_l_img = IMAGES.panels[base.format(nine_panel_names[0])].copy())
-        self.images.append(self.t_c_img = IMAGES.panels[base.format(nine_panel_names[1])].copy())
-        self.images.append(self.t_r_img = IMAGES.panels[base.format(nine_panel_names[2])].copy())
-
-        self.images.append(self.l_c_img = IMAGES.panels[base.format(nine_panel_names[3])].copy())
-        self.images.append(self.c_img = IMAGES.panels[base.format(nine_panel_names[4])].copy())
-        self.images.append(self.r_c_img = IMAGES.panels[base.format(nine_panel_names[5])].copy())
-
-        self.images.append(self.b_l_img = IMAGES.panels[base.format(nine_panel_names[6])].copy())
-        self.images.append(self.b_c_img = IMAGES.panels[base.format(nine_panel_names[7])].copy())
-        self.images.append(self.b_r_img = IMAGES.panels[base.format(nine_panel_names[8])].copy())
-'''
-
     def update(self, displaysurface):
         for image, rect in zip(self.images, self.rects):
             displaysurface.blit(image, rect)
 
+class WindowTileHolder(Window):
+    def __init__(self, position=(0,0), width=300, height=500, color='blue'):
+        super().__init__(position, width, height, color)
+    def add_vector(self, coord_1 = (), coord_2 = ()):
+        '''
+        Vector Addition
+        :param coord_1:
+        :param coord_2:
+        :return:
+        '''
+        x = coord_1[0] + coord_2[0]
+        y = coord_1[1] + coord_2[1]
+        return (x,y)
+
+    def make_gui(self):
+        base = self.color + '_tile_holder_{}'
+
+        panel_names = ['top_left', 'top_repeating', 'top_right',
+                            'left_repeating', 'center', 'right_repeating',
+                            'bottom_left', 'bottom_repeating', 'bottom_right', ]
+
+        bar_names = ['bar_left_edge', 'bar_center_repeating', 'bar_right_edge']
+        self.images = []
+        self.images.append(IMAGES.panels[base.format(panel_names[0])].copy())
+        self.images.append(IMAGES.panels[base.format(panel_names[1])].copy())
+        self.images.append(IMAGES.panels[base.format(panel_names[2])].copy())
+
+        self.images.append( IMAGES.panels[base.format(panel_names[3])].copy())
+        self.images.append( IMAGES.panels[base.format(panel_names[4])].copy())
+        self.images.append( IMAGES.panels[base.format(panel_names[5])].copy())
+
+        self.images.append( IMAGES.panels[base.format(panel_names[6])].copy())
+        self.images.append( IMAGES.panels[base.format(panel_names[7])].copy())
+        self.images.append( IMAGES.panels[base.format(panel_names[8])].copy())
+
+        # size of each
+        self.sizes = []
+        for item in self.images:
+            self.sizes.append(item.get_size())
+
+        #resize middle parts of edges, and center
+        corner_w = self.sizes[0][0]
+        corner_h = self.sizes[0][1]
+
+        # top center
+
+        self.images[1] = pygame.transform.smoothscale(self.images[1], (max(1, self.width-corner_w*2), self.sizes[1][1]))
+
+        # center left edge
+        self.images[3] = pygame.transform.smoothscale(self.images[3], (self.sizes[3][0], max(1, self.height-(corner_h*2))))
+
+        # center
+        self.images[4] = pygame.transform.smoothscale(self.images[4], (max(1,self.width-(corner_w*2)), max(1,self.height-(corner_h*2))))
+
+
+        # center right edge
+        self.images[5] = pygame.transform.smoothscale(self.images[5], (self.sizes[5][0], max(1,self.height-(corner_h*2))))
+
+        # bottom center
+        self.images[7] = pygame.transform.smoothscale(self.images[7], (max(1,self.width-corner_w*2), self.sizes[7][1]))
+
+
+        # surf
+        self.surfaces = []
+        for item in self.images:
+            self.surfaces.append(pygame.Surface(item.get_size()))
+        # subtract width, subtract height
+        t_l_pos = self.add_vector(((-self.width/2) + (self.sizes[0][0]/2), (-self.height/2) + (self.sizes[0][1]/2)), self.pos)
+        #t_l_pos = self.add_vector((-self.width/2, -self.height/2), self.pos)
+
+        t_l_rect = self.surfaces[0].get_rect(center=t_l_pos)
+
+        # top center = no change width, subtract height
+        t_c_pos = self.add_vector((0, (-self.height/2) + (self.sizes[1][1]/2)), self.pos)
+        t_c_rect = self.surfaces[1].get_rect(center=t_c_pos)
+
+        # top right = ADD width, subtract height
+        t_r_pos = self.add_vector(((self.width/2) - (self.sizes[2][0]/2), (-self.height/2) + (self.sizes[2][1]/2)), self.pos)
+        #t_r_pos = self.add_vector((self.sizes[2][0]*2, - self.sizes[2][1]*2), self.pos)
+
+        t_r_rect = self.surfaces[2].get_rect(center=t_r_pos)
+
+        # mid left = Subtract Width, no change to height
+        l_c_pos = self.add_vector(((-self.width/2) + (self.sizes[3][0]/2), 0), self.pos)
+        l_c_rect = self.surfaces[3].get_rect(center=l_c_pos)
+
+        c_rect = self.surfaces[4].get_rect(center=self.pos)
+        # mid right = add width, no chang eheight
+        r_c_pos = self.add_vector(((self.width/2) - (self.sizes[5][0]/2), 0), self.pos)
+        r_c_rect = self.surfaces[5].get_rect(center=r_c_pos)
+
+        # bot left = sub width, add height
+        b_l_pos = self.add_vector(((-self.width/2) + (self.sizes[6][0]/2), (self.height/2) - (self.sizes[6][1]/2)), self.pos)
+        b_l_rect = self.surfaces[6].get_rect(center=b_l_pos)
+
+        # bot mid = no change width, add height
+        b_c_pos = self.add_vector((0, (self.height/2) - (self.sizes[7][1]/2)), self.pos)
+        b_c_rect = self.surfaces[7].get_rect(center=b_c_pos)
+
+        # bot right = add width, add height
+        b_r_pos = self.add_vector(((self.width/2) - (self.sizes[8][0]/2), (self.height/2) - (self.sizes[8][1]/2)), self.pos)
+        b_r_rect = self.surfaces[0].get_rect(center=b_r_pos)
+
+        self.rects = [t_l_rect,t_c_rect,t_r_rect,
+                      l_c_rect, c_rect, r_c_rect,
+                      b_l_rect, b_c_rect, b_r_rect]
+
+    def update(self, displaysurface):
+        for image, rect in zip(self.images, self.rects):
+            displaysurface.blit(image, rect)
 
 class Tile(pygame.sprite.Sprite):
     """
@@ -763,16 +848,16 @@ class Tile(pygame.sprite.Sprite):
 
     """
 
-    def __init__(self, coord=None, invLetter=None, color=(50,50,50), tile_image='cream', position=(0, 0), letter_uuid=None):
+    def __init__(self, coord=None, invLetter=None, color=(50,50,50), tile_image='cream', position=(0, 0), letter_uuid=None, scale=1):
         super().__init__()
-        tile_size = Globals.get_tile_size()
+        tile_size = Globals.get_tile_size() * scale
         border_size = Globals.get_border_size()
         board_offset = Globals.get_board_offset()
         self.uuid = uuid4()
         self.tapped = False
-
+        self.scale = scale
         self.visible = True
-        self.surf = pygame.Surface((Globals.get_tile_size(), Globals.get_tile_size()))
+        self.surf = pygame.Surface((tile_size, tile_size))
         self.color = color
 
         if coord:  # placed on board
@@ -788,23 +873,28 @@ class Tile(pygame.sprite.Sprite):
             self.rect = self.surf.get_rect(topleft=self.position)
 
         # an overlay that shows selection
-        self.selected_surf = pygame.Surface((tile_size + border_size * 2, tile_size + border_size * 2))
-        self.selected_surf.fill(Globals.get_selected_tile_color())
+        selection_img = IMAGES.tiles['select_border_white']
+        selection_img = pygame.transform.smoothscale(selection_img, (tile_size + border_size * 2, tile_size + border_size * 2))
+        self.selected_surf = selection_img.copy()
+        #self.selected_surf = pygame.Surface((tile_size + border_size * 2, tile_size + border_size * 2))
+        self.selected_surf.fill(Globals.get_selected_tile_color(), special_flags=BLEND_MULT)
         self.selected_surf.set_alpha(128)
         self.selected_rect = self.selected_surf.get_rect(
             topleft=(self.position[0], self.position[1]))
 
         # a box that renders beneath the tile which shows if its a required spot
-        self.required_surf = pygame.Surface((tile_size + border_size * 2, tile_size + border_size * 2))
-        self.required_surf.fill(Globals.get_required_tile_color())
-        self.required_rect = self.selected_surf.get_rect(
+        self.required_surf = selection_img.copy()
+        #self.required_surf = pygame.Surface((tile_size + border_size * 2, tile_size + border_size * 2))
+        self.required_surf.fill(Globals.get_required_tile_color(), special_flags=pygame.BLEND_MULT)
+        self.highlight_rect = self.selected_surf.get_rect(
             topleft=(self.position[0] - border_size, self.position[1] - border_size))
 
-        self.tapped_surf = pygame.Surface((tile_size + border_size * 2, tile_size + border_size * 2))
-        self.tapped_surf.fill((255,0,0))
+        self.tapped_surf = selection_img.copy()
+        #self.tapped_surf = pygame.Surface((tile_size + border_size * 2, tile_size + border_size * 2))
+        self.tapped_surf.fill((255,0,0), special_flags=pygame.BLEND_MULT)
         self.tapped_surf.set_alpha(128)
         self.tapped_rect = self.tapped_surf.get_rect(
-            topleft=(self.position[0], self.position[1]))
+            topleft=(self.position[0]-border_size*2, self.position[1]-border_size*2))
 
         # set up the letter image it has a letter placed
         if invLetter is not None:
@@ -820,16 +910,55 @@ class Tile(pygame.sprite.Sprite):
 
     def set_image(self, invLetter=None, letter=None):
         tile_size = Globals.get_tile_size()
+        letter_value = {       'a':1,
+                                    'b':3,
+                                    'c':3,
+                                    'd':2,
+                                    'e':1,
+                                    'f':4,
+                                    'g':2,
+                                    'h':4,
+                                    'i':1,
+                                    'j':8,
+                                    'k':5,
+                                    'l':1,
+                                    'm':3,
+                                    'n':1,
+                                    'o':1,
+                                    'p':3,
+                                    'q':10,
+                                    'r':1,
+                                    's':1,
+                                    't':1,
+                                    'u':3,
+                                    'v':4,
+                                    'w':4,
+                                    'x':8,
+                                    'y':4,
+                                    'z':10
+                                    }
         if invLetter:
+            self.letter = invLetter.letter
             image = IMAGES.letters[invLetter.letter]
             self.letter_uuid = invLetter.uuid
+            score_val = letter_value[invLetter.letter]
         elif letter:
+            self.letter = letter
             image = IMAGES.letters[letter]
             self.letter_uuid = None
-        self.letter = IMAGES.letter_img[image]
-        if image.get_size()[0] > tile_size or image.get_size()[1] > tile_size:
-            image = pygame.transform.smoothscale(image, (tile_size, tile_size))
-            self.letter_img = image
+            score_val = letter_value[letter]
+        score_val = str(score_val)
+        self.number_img = IMAGES.numbers[score_val]
+        self.number_img = pygame.transform.smoothscale(self.number_img, (int(tile_size*self.scale/5), int(tile_size*self.scale/5)))
+        num_size = self.number_img.get_size()
+        pos = self.position
+        pos = (pos[0]+tile_size*self.scale - num_size[0]-2, pos[1]+tile_size*self.scale - num_size[1]-2)
+        self.number_rect = self.number_img.get_rect(center=pos)
+        if image.get_size()[0] > tile_size or image.get_size()[1] > tile_size*self.scale:
+            image = pygame.transform.smoothscale(image, (tile_size*self.scale, tile_size*self.scale))
+
+        self.letter_img = image
+
         return
 
     def handle_event(self, event):
@@ -860,6 +989,7 @@ class Tile(pygame.sprite.Sprite):
             if self.letter_img:
                 displaysurface.blit(self.tile_img, self.rect)
                 displaysurface.blit(self.letter_img, self.rect)
+                displaysurface.blit(self.number_img, self.number_rect)
 
             else:
                 displaysurface.blit(self.tile_img, self.rect)
@@ -867,14 +997,26 @@ class Tile(pygame.sprite.Sprite):
                 displaysurface.blit(self.tapped_surf, self.rect)
     def set_position(self, new_position):
         self.position = new_position
+        tile_size = Globals.get_tile_size()
         self.rect = self.surf.get_rect(topleft=self.position)
+        if self.number_img:
+            num_size = self.number_img.get_size()
+            pos = self.position
+            pos = (pos[0]+tile_size*self.scale - num_size[0]-2, pos[1]+tile_size*self.scale - num_size[1]-2)
+            self.number_rect = self.number_img.get_rect(center=pos)
+
 
 
 class SelectedTile(Tile):
-    def __init__(self, coord):
+    def __init__(self, coord, scale=1):
         super().__init__(coord, color=Globals.get_highlight_color())
-        self.surf = pygame.Surface((Globals.get_tile_size() + (Globals.get_border_size() * 2),
-                                    Globals.get_tile_size() + (Globals.get_border_size() * 2)))
+        size = (Globals.get_tile_size()*scale + (Globals.get_border_size() * 2),
+                                    Globals.get_tile_size()*scale + (Globals.get_border_size() * 2))
+        self.surf = pygame.Surface(size)
+        self.image = IMAGES.tiles['tile_face']
+        self.image = pygame.transform.smoothscale(self.image, size)
+        #self.image.fill((30,30,30), special_flags=pygame.BLEND_ADD)
+        self.image.set_alpha(128)
         self.surf.fill(self.color)
         self.surf.set_alpha(128)
         self.hidden = True
@@ -885,7 +1027,7 @@ class SelectedTile(Tile):
             border_size = Globals.get_border_size()
             board_offset = Globals.get_board_offset()
             self.hidden = False
-            self.rect.update(position, (tile_size, tile_size))
+            self.rect.update(position, (tile_size-border_size, tile_size-border_size))
             return
         else:
             if coord != self.coord:
@@ -908,6 +1050,11 @@ class SelectedTile(Tile):
         self.rect.update((-tile_size, -tile_size), (tile_size, tile_size))  # hides just off screen
         self.hidden = True
 
+    def update(self, displaysurface):
+        if not self.hidden:
+            #displaysurface.blit(self.surf, self.rect)
+            displaysurface.blit(self.image, self.rect)
+
 
 class Inventory(pygame.sprite.Group):
     '''
@@ -917,15 +1064,17 @@ class Inventory(pygame.sprite.Group):
     def __init__(self, letters=[]):
         super().__init__()
         self.bounds_buffer = 20
-        tile_size = Globals.get_tile_size()
-        border_size = Globals.get_border_size()
+        self.scale = 2
+        self.tile_size = Globals.get_tile_size() * self.scale
+
+        self.border_size = Globals.get_border_size()
         board_offset = Globals.get_board_offset()
         height = Globals.get_height()
         width = 700
         self.bounds = (
-            7 * (tile_size + border_size),
-            tile_size + (border_size))  # x = 7 tiles wide with some buffer, y = 2 tiles tall
-        self.position = (width, (height - height / 10))  # x = center, y = close to edge
+            7 * (self.tile_size + self.border_size),
+            self.tile_size + self.border_size)  # x = 7 tiles wide with some buffer, y = 2 tiles tall
+        self.position = (25, (height - height / 10))  # x = close to left edge, y = close to  bottom edge
         self.surf = pygame.surface.Surface(self.bounds)
         self.surf.fill((50, 50, 50, 100))
         self.rect = self.surf.get_rect(topleft=self.position)
@@ -944,9 +1093,9 @@ class Inventory(pygame.sprite.Group):
             self.empty()
             for index, letter in enumerate(invLetters):
                 position = (
-                    self.position[0] + index * (Globals.get_tile_size() + Globals.get_border_size()), self.position[1]
+                    self.position[0] + index * (self.tile_size + self.border_size), self.position[1]
                 )
-                self.add(Tile(invLetter=letter, position=position))
+                self.add(Tile(invLetter=letter, position=position, scale=self.scale))
         else:
             new_letter_uuids = [str(x.uuid) for x in invLetters]
             existing_letter_uuids = [str(x.letter_uuid) for x in self.sprites()]
@@ -966,7 +1115,7 @@ class Inventory(pygame.sprite.Group):
     def recalc_positions(self):
         for index, tile in enumerate(self.sprites()):
             position = (
-                self.position[0] + index * (Globals.get_tile_size() + Globals.get_border_size()), self.position[1]
+                self.position[0] + index * (self.tile_size + self.border_size), self.position[1]
             )
             tile.set_position(position)
 
@@ -990,7 +1139,7 @@ class Inventory(pygame.sprite.Group):
         position = (
             self.position[0] + index * (Globals.get_tile_size() + Globals.get_border_size()), self.position[1]
         )
-        self.add(Tile(invLetter=letter, position=position))
+        self.add(Tile(invLetter=letter, position=position, scale=self.scale))
         return True
 
     def update(self, displaysurface):
@@ -1119,23 +1268,24 @@ class Game:
         # main menu buttons
         num_players = 2
         name_text = ''
-        window_test = NormalWindow(position=(Globals.get_width()/2, Globals.get_height()/2), width=600, height=300, color='green')
-        round_btn = RoundButton(image=IMAGES.icons128['cross'], scale=0.2, color='pink')
-        player_minus_btn = Button(text="- Player",
-                                  position=(200, Globals.get_height() / 2),
-                                  width=150,
-                                  height=50,
-                                  event=events.decrease_players_e
+        window_test = WindowNormal(position=((Globals.get_width() / 2)-200, (Globals.get_height() / 2)+100), width=400, height=500, color='blue')
+        #round_btn = RoundButton(image=IMAGES.icons128['cross'], scale=0.2, color='pink')
+        player_minus_btn = RoundButton(text="",
+                                       image=IMAGES.icons128['minus'],
+                                       position=((Globals.get_width() / 2)-200-60, Globals.get_height() / 2),
+                                       scale=0.15,
+                                       color='green',
+                                       event=events.decrease_players_e
                                   )
-        player_plus_btn = Button(text="+ Player",
-                                 position=(600, Globals.get_height() / 2),
-                                 width=150,
-                                 height=50,
-                                 event=events.increase_players_e
+        player_plus_btn = RoundButton(text="",
+                                      image=IMAGES.icons128['add'],
+                                      position=((Globals.get_width() / 2)-200+60, Globals.get_height() / 2),
+                                      scale=0.15,
+                                      event=events.increase_players_e
                                  )
         server_btn = Button(text="Host Server",
-                            position=(600, Globals.get_height() - 100),
-                            width=150,
+                            position=((Globals.get_width() / 2)-200, Globals.get_height() - 150),
+                            width=250,
                             height=50,
                             event=events.server_start_e)
 
@@ -1148,7 +1298,7 @@ class Game:
 
         main_menu_buttons = pygame.sprite.Group([server_btn, join_btn])
 
-        main_menu_buttons.add([player_minus_btn, player_plus_btn, round_btn])
+        main_menu_buttons.add([player_minus_btn, player_plus_btn])
 
         # text input
         name_input = TextInput(position=(100, 200), default_text='<enter name>')
@@ -1164,9 +1314,9 @@ class Game:
                                    position=(Globals.get_width() / 2, Globals.get_height() / 2),
                                    set_custom_size=(Globals.get_width(), Globals.get_height())
                                    )
-        player_count_image = ImageSprite(image=IMAGES.letters[str(num_players)],
-                                         position=(400, Globals.get_height() / 2),
-                                         set_custom_size=(100, 100)
+        player_count_image = ImageSprite(image=IMAGES.numbers[str(num_players)],
+                                         position=((Globals.get_width() / 2)-200, Globals.get_height() / 2),
+                                         set_custom_size=(50, 50)
                                          )
         main_menu_sprites = pygame.sprite.Group([player_count_image])
 
@@ -1193,12 +1343,12 @@ class Game:
                     print("players increased")
                     if num_players < 4:
                         num_players += 1
-                        player_count_image.set_image(IMAGES.letters[str(num_players)])
+                        player_count_image.set_image(IMAGES.numbers[str(num_players)])
 
                 if event.type == events.decrease_players_e:
                     if num_players > 2:
                         num_players -= 1
-                        player_count_image.set_image(IMAGES.letters[str(num_players)])
+                        player_count_image.set_image(IMAGES.numbers[str(num_players)])
 
                     print("players decreased")
 
@@ -1275,7 +1425,7 @@ class Game:
         required_spots = []
         running = True
         board_tile_select = SelectedTile((0, 0))
-        inv_tile_select = SelectedTile((0, 0))
+        inv_tile_select = SelectedTile((0, 0), scale=2)
         focus = None
         focus_inv = None
         active_inv_tile = None
@@ -1286,12 +1436,15 @@ class Game:
         my_player = game_model.players[self.network.player]
 
         player_inv_view = Inventory(my_player.Get_Inventory())
-        active = False
         # buttons
-        commit_btn = Button("commit turn", position=(800, 500), width=150, height=100, event=events.lock_in_e)
-        trade_btn = Button("exchange tiles", position=(800, 400), width=150, height=100, event=events.exchange_tiles_e)
-        remove_placed_btn = Button("remove placed", position=(800, 200), width=150, height=100,
-                                   event=events.remove_tile_e)
+        #commit_btn_pos = (Globals.get_board_offset()[0]+((Globals.get_tile_size()+Globals.get_border_size())*8), Globals.get_height()-50)
+        commit_btn_pos = (790, Globals.get_height()-50)
+
+        commit_btn = RoundButton(image=IMAGES.icons128['cursor_right'], position=commit_btn_pos, scale=0.4, color='green', event=events.lock_in_e)
+        trade_btn_pos = (100, Globals.get_height()-150)
+        trade_btn = RoundButton(image=IMAGES.icons128['replay'], position=trade_btn_pos, scale=0.4, color='red', event=events.commit_swap_e)
+        remove_btn_pos = (175, Globals.get_height()-150)
+        remove_placed_btn = RoundButton(image=IMAGES.icons128['rewind'], position=remove_btn_pos, scale=0.4, color='yellow', event=events.remove_tile_e)
         my_turn_button_grp = pygame.sprite.Group([commit_btn, trade_btn, remove_placed_btn])
         ok_pos = player_inv_view.position
         ok_pos = (ok_pos[0] + 36*7, ok_pos[1])
@@ -1391,7 +1544,7 @@ class Game:
                 if event.type == events.on_hover_e:
                     board_tile_select.move(coord=focus.coord)
                 if event.type == events.on_hover_inv_e:
-                    inv_tile_select.move(position=focus_inv.position)
+                    inv_tile_select.move(position=(focus_inv.position[0]-Globals.get_border_size(), focus_inv.position[1]-Globals.get_border_size()))
                 if event.type == events.remove_tile_e:
                     for letter_tile in player_inv_view:
                         letter_tile.tap(False)
@@ -1408,7 +1561,8 @@ class Game:
                     data = rules.DataPacket(cmd="commit", mode=1, letters_played=letters_played,
                                             coords_played=coords_played,
                                             player_id=game_model.active_player)  # create the turn, which the server will process
-
+                    for inv_tile in player_inv_view:
+                        inv_tile.tap(False)
                 if event.type == events.exchange_tiles_e:
                     # run a sub-loop that lets the player select multiple tiles,
                     # and then click OK or Cancel to exit the loop
@@ -1447,11 +1601,12 @@ class Game:
 
             displaysurface.fill((0, 0, 0))  # bg (temp)
             for entity in self.grids_grp:
-                displaysurface.blit(entity.surf, entity.rect)
+                displaysurface.blit(entity.image, entity.rect)
             # show scoreboard
             self.track_player_status(displaysurface, game_model, name_plates, self.network.player)
-            active_player_text = Globals.get_font(20).render("Player "+ str(game_model.active_player) +'s Turn', True, (255,255,255))
-            displaysurface.blit(active_player_text, active_player_text.get_rect(center=(Globals.get_width()/2, Globals.get_height()-100)))
+            # show current player's turn
+            active_player_text = Globals.get_font(20).render(str(game_model.players[game_model.active_player].name) +'s Turn', True, (255,255,255))
+            displaysurface.blit(active_player_text, active_player_text.get_rect(topleft=(100, 50)))
             # update Game Board Tiles
             displaysurface.blit(gameboard.surf, gameboard.rect)  # showing active bounds of board (temp)
 
@@ -1459,24 +1614,25 @@ class Game:
 
             for entity in gameboard:
                 if entity.coord in required_spots:
-                    displaysurface.blit(entity.required_surf, entity.rect)
+                    displaysurface.blit(entity.required_surf, entity.highlight_rect)
                 entity.update(displaysurface)
 
             if active_inv_tile:
-                displaysurface.blit(active_inv_tile.selected_surf, active_inv_tile.rect)
+                displaysurface.blit(active_inv_tile.selected_surf, active_inv_tile.highlight_rect)
             player_inv_view.update(displaysurface)
 
             if active_board_tile:
-                displaysurface.blit(active_board_tile.selected_surf, active_board_tile.rect)
+                displaysurface.blit(active_board_tile.selected_surf, active_board_tile.highlight_rect)
 
             if focus:  # Selected tile
-                displaysurface.blit(board_tile_select.surf, board_tile_select.rect)
+                board_tile_select.update(displaysurface)
+                #displaysurface.blit(board_tile_select.surf, board_tile_select.rect)
             if focus_inv:
-                displaysurface.blit(inv_tile_select.surf, inv_tile_select.rect)
+                inv_tile_select.update(displaysurface)
+                #displaysurface.blit(inv_tile_select.surf, inv_tile_select.rect)
 
             for entity in my_turn_button_grp:  # turn control buttons
                 entity.update(displaysurface, active=game_model.active_player == self.network.player)
-            displaysurface.blit(active_player_text, active_player_text.get_rect(center=(Globals.get_width()/2, Globals.get_height()-100)))
             if swap_view:
                 for entity in swap_tiles_button_grp:
                     entity.update(displaysurface, active=game_model.active_player == self.network.player)
@@ -1557,7 +1713,9 @@ class Game:
                 me = True
             if player_id == game_model.active_player:
                 active = True
-            pos = (Globals.get_width() - NamePlate.WIDTH, 300 + (int(player_id) * NamePlate.HEIGHT))
+            #pos = (Globals.get_width() - NamePlate.WIDTH, 300 + (int(player_id) * NamePlate.HEIGHT))
+            pos = (0, 100 + (int(player_id) * NamePlate.HEIGHT))
+
             score = player_data.Get_Score()
             name_plates[player_id].update(displaysurface, pos, active=active, me=me, score=score)
 
