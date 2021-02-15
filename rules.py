@@ -280,7 +280,7 @@ class Scrabble():
         self.Reset_Temp_Playboard()
         if data_packet.mode == 0: # trading letters
             new_letters = self.Exchange_Letters(data_packet.letters_played)
-            self.players[self.active_player].Exchange_letters(data_packet.letters_played, new_letters)
+            self.players[self.active_player].Exchange_Letters(data_packet.letters_played, new_letters)
             self.last_active_player = self.active_player
             if int(self.active_player) + 1 > self.total_players:
                 self.active_player = '1'
@@ -300,8 +300,8 @@ class Scrabble():
 
             # for each letter played, add it to a temp playboard
             # ensure all letters played are in a straight line:
-
-            letters_played, coords_played = self.Order_Letters(data_packet.letters_played, data_packet.coords_played)
+            letters_played = [item.letter for item in data_packet.letters_played]
+            letters_played, coords_played = self.Order_Letters(letters_played, data_packet.coords_played)
             for letter, coord in zip(letters_played, coords_played):
                 self.Set_Letter(letter, coord, temp=True)
             # for each letter played, see if it constructs any words on the temp playboard (now accounting for if a word is JUST new letters)
@@ -380,6 +380,9 @@ class Scrabble():
             return self.__temp_playboard[y][x]
         else:
             return self.__playboard[y][x]
+
+    def Get_WordQ_Len(self):
+        return len(self.word_Q)
 
     def Detect_playable_spots(self, coords_played = []):
         '''

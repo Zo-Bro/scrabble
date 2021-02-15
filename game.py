@@ -247,7 +247,8 @@ class TextInput:
     '''
 
     def __init__(self, position=(0, 0), width=200, height=50, font_size=24, max_chars=8, default_text=''):
-        self.rect = pygame.Rect(position, (width, height))
+        self.surf = pygame.Surface((width, height))
+        self.rect = self.surf.get_rect(center=position)
         self.color = Globals.get_inactive_color()
         self.font_color = Globals.get_font_color()
         self.font_size = font_size
@@ -262,9 +263,11 @@ class TextInput:
             if self.rect.collidepoint(mouse_position):
                 self.active = True
                 self.color = Globals.get_active_color()
+                self.surf.fill(self.color)
             else:
                 self.active = False
                 self.color = Globals.get_inactive_color()
+                self.surf.fill(self.color)
 
         if event.type == pygame.KEYDOWN:
             if self.active:
@@ -277,7 +280,8 @@ class TextInput:
                     self.text += event.unicode
 
     def update(self, displaySurface):
-        pygame.draw.rect(displaySurface, self.color, self.rect)
+        displaySurface.blit(self.surf, self.rect)
+        #pygame.draw.rect(displaySurface, self.color, self.rect)
         self.text_surface = Globals.get_font(self.font_size).render(self.text, True, self.font_color)
         displaySurface.blit(self.text_surface, (self.rect.x + 5, self.rect.y + 5))
 
@@ -309,21 +313,25 @@ class TextBox():
     def __init__(self, text='',
                  position=(100, 100),
                  width=300,
-                 height=200,
-                 font_color=(0, 0, 0),
-                 color=(50, 50, 50),
-                 bg_image=None,
+                 height=100,
+                 font_color=(255, 255, 255),
+                 font_size=12,
+                 window_style=None,
+                 color='blue',
                  button='ok'):
-        self.text = text
+        font = Globals.get_font(font_size)
+        self.text = font.render(text, True, font_color)
+        self.text_rect = self.text.get_rect(center=position)
         self.position = position
         self.width = width
         self.height = height
-        self.font_color = font_color
-        self.color = color
-        self.surf = pygame.Surface((self.width, self.height), position)
+        self.surf = pygame.Surface((self.width, self.height))
+        self.win_style = [WindowNormal, WindowTileHolder]
+        if window_style:
+            self.window = self.win_style[window_style](position, width, height, color)
+        else:
+            self.window = None
 
-        if bg_image:
-            self.set_image(bg_image)
 
     def set_image(self, image):
         size = (self.width, self.height)
@@ -332,6 +340,11 @@ class TextBox():
             self.image = image
             self.surf.fill(self.color)
         return
+
+    def update(self, displaysurface):
+        if self.window:
+            self.window.update(displaysurface)
+        displaysurface.blit(self.text, self.text_rect)
 
 
 class WindowFrame(pygame.sprite.Sprite):
@@ -412,7 +425,6 @@ class Button(pygame.sprite.Sprite):
         self.text = font.render(text, True, font_color)
         self.text_rect = self.text.get_rect(center=position)
         self.surf = pygame.surface.Surface((width, height))
-        self.surf.fill(color)
         self.position = position
         self.event = event
         self.state = 'neutral'
@@ -554,6 +566,7 @@ class RoundButton(pygame.sprite.Sprite):
 
             if self.state == 'hover':
                 display_surface.blit(self.h_img, self.rect)
+
             if self.image:
                 display_surface.blit(self.image, self.image_rect)
             else:
@@ -687,8 +700,6 @@ class WindowNormal(Window):
             self.surfaces.append(pygame.Surface(item.get_size()))
         # subtract width, subtract height
         t_l_pos = self.add_vector(((-self.width/2) + (self.sizes[0][0]/2), (-self.height/2) + (self.sizes[0][1]/2)), self.pos)
-        #t_l_pos = self.add_vector((-self.width/2, -self.height/2), self.pos)
-
         t_l_rect = self.surfaces[0].get_rect(center=t_l_pos)
 
         # top center = no change width, subtract height
@@ -697,7 +708,6 @@ class WindowNormal(Window):
 
         # top right = ADD width, subtract height
         t_r_pos = self.add_vector(((self.width/2) - (self.sizes[2][0]/2), (-self.height/2) + (self.sizes[2][1]/2)), self.pos)
-        #t_r_pos = self.add_vector((self.sizes[2][0]*2, - self.sizes[2][1]*2), self.pos)
 
         t_r_rect = self.surfaces[2].get_rect(center=t_r_pos)
 
@@ -798,7 +808,6 @@ class WindowTileHolder(Window):
             self.surfaces.append(pygame.Surface(item.get_size()))
         # subtract width, subtract height
         t_l_pos = self.add_vector(((-self.width/2) + (self.sizes[0][0]/2), (-self.height/2) + (self.sizes[0][1]/2)), self.pos)
-        #t_l_pos = self.add_vector((-self.width/2, -self.height/2), self.pos)
 
         t_l_rect = self.surfaces[0].get_rect(center=t_l_pos)
 
@@ -808,7 +817,6 @@ class WindowTileHolder(Window):
 
         # top right = ADD width, subtract height
         t_r_pos = self.add_vector(((self.width/2) - (self.sizes[2][0]/2), (-self.height/2) + (self.sizes[2][1]/2)), self.pos)
-        #t_r_pos = self.add_vector((self.sizes[2][0]*2, - self.sizes[2][1]*2), self.pos)
 
         t_r_rect = self.surfaces[2].get_rect(center=t_r_pos)
 
@@ -891,10 +899,10 @@ class Tile(pygame.sprite.Sprite):
 
         self.tapped_surf = selection_img.copy()
         #self.tapped_surf = pygame.Surface((tile_size + border_size * 2, tile_size + border_size * 2))
-        self.tapped_surf.fill((255,0,0), special_flags=pygame.BLEND_MULT)
+        self.tapped_surf.fill((0,255,0), special_flags=pygame.BLEND_MULT)
         self.tapped_surf.set_alpha(128)
         self.tapped_rect = self.tapped_surf.get_rect(
-            topleft=(self.position[0]-border_size*2, self.position[1]-border_size*2))
+            topleft=(self.position[0]-border_size, self.position[1]-border_size))
 
         # set up the letter image it has a letter placed
         if invLetter is not None:
@@ -1146,6 +1154,23 @@ class Inventory(pygame.sprite.Group):
         for tile in self.sprites():
             tile.update(displaysurface)
 
+class WordQCounter:
+    def __init__(self, position, count, font_size=20, font_color=(255,255,255)):
+        self.font = Globals.get_font(font_size)
+        self.font_color = font_color
+        self.count = count
+        self.label = self.font.render("Tiles Left:", True, font_color)
+        self.label_rect = self.label.get_rect(center=position)
+        label_height = self.label.get_height()
+        self.text = self.font.render(str(count), True, font_color)
+        text_pos = (position[0], position[1]+label_height)
+        self.text_rect= self.text.get_rect(center=text_pos)
+
+    def update(self, displaysurface, count):
+        if self.count != count:
+            self.text =self.font.render(str(count), True, self.font_color)
+        displaysurface.blit(self.label, self.label_rect)
+        displaysurface.blit(self.text, self.text_rect)
 
 class GameBoard(pygame.sprite.Group):
     '''
@@ -1223,6 +1248,13 @@ class GameBoard(pygame.sprite.Group):
             for x, value in enumerate(column):
                 self.set_tile(value, (x, y))
 
+    def update(self, displaysurface, required_spots):
+
+        for entity in self.sprites():
+            if entity.coord in required_spots:
+                displaysurface.blit(entity.required_surf, entity.highlight_rect)
+            entity.update(displaysurface)
+
 
 """
 def ParticleSystem():
@@ -1268,19 +1300,21 @@ class Game:
         # main menu buttons
         num_players = 2
         name_text = ''
-        window_test = WindowNormal(position=((Globals.get_width() / 2)-200, (Globals.get_height() / 2)+100), width=400, height=500, color='blue')
+        host_window = WindowNormal(position=((Globals.get_width() / 2)-200, (Globals.get_height() / 2)+100), width=400, height=500, color='blue')
+        join_window = WindowNormal(position=((Globals.get_width() / 2)+200, (Globals.get_height() / 2)+100), width=400, height=500, color='blue')
+
         #round_btn = RoundButton(image=IMAGES.icons128['cross'], scale=0.2, color='pink')
         player_minus_btn = RoundButton(text="",
                                        image=IMAGES.icons128['minus'],
                                        position=((Globals.get_width() / 2)-200-60, Globals.get_height() / 2),
-                                       scale=0.15,
+                                       scale=0.25,
                                        color='green',
                                        event=events.decrease_players_e
                                   )
         player_plus_btn = RoundButton(text="",
                                       image=IMAGES.icons128['add'],
                                       position=((Globals.get_width() / 2)-200+60, Globals.get_height() / 2),
-                                      scale=0.15,
+                                      scale=0.25,
                                       event=events.increase_players_e
                                  )
         server_btn = Button(text="Host Server",
@@ -1290,8 +1324,8 @@ class Game:
                             event=events.server_start_e)
 
         join_btn = Button(text="Join Game",
-                          position=(800, Globals.get_height() - 100),
-                          width=150,
+                          position=((Globals.get_width() / 2)+200, Globals.get_height() - 150),
+                          width=250,
                           height=50,
                           event=events.connect_to_server_e
                           )
@@ -1301,13 +1335,14 @@ class Game:
         main_menu_buttons.add([player_minus_btn, player_plus_btn])
 
         # text input
-        name_input = TextInput(position=(100, 200), default_text='<enter name>')
-        server_IP_input = TextInput(position=(800, Globals.get_height() - 200),
-                                    width=200,
-                                    height=100,
+        name_input_label = TextBox(text="Name:", position=(Globals.get_width()/2-175,150 ),width=100, height=50, font_size=36)
+        name_input = TextInput(position=(Globals.get_width()/2,150 ), default_text='<enter name>')
+        server_IP_input = TextInput(position=((Globals.get_width() / 2)+200, Globals.get_height() / 2),
+                                    width=250,
+                                    height=50,
                                     font_size=36,
                                     max_chars=36,
-                                    default_text='192.168.1.4'
+                                    default_text='192.168.1.12'
                                     )
         # main menu sprites
         main_menu_bg = ImageSprite(image=IMAGES.bgs['blue'],
@@ -1384,8 +1419,11 @@ class Game:
                 displaysurface.blit(main_menu_bg.image, main_menu_bg.rect)
                 for entity in self.grids_grp:
                     displaysurface.blit(entity.image, entity.rect)
+                # windows
+                host_window.update(displaysurface)
+                join_window.update(displaysurface)
+
                 # buttons
-                window_test.update(displaysurface)
                 for button in main_menu_buttons:
                     button.update(displaysurface)
                 # sprites
@@ -1395,6 +1433,7 @@ class Game:
                     else:
                         displaysurface.blit(entity.surf, entity.rect)
                 # input boxes
+                name_input_label.update(displaysurface)
                 name_input.update(displaysurface)
                 server_IP_input.update(displaysurface)
 
@@ -1414,9 +1453,7 @@ class Game:
         game_model = self.network.send(rules.DataPacket('get'))
 
         gameboard = GameBoard(game_model)
-
         game_buttons = pygame.sprite.Group()
-
         all_sprites = pygame.sprite.Group()
         all_sprites.add(gameboard.sprites())
         all_sprites.add(game_buttons.sprites())
@@ -1424,45 +1461,53 @@ class Game:
         open_spots = []
         required_spots = []
         running = True
+
+        # selection and cursor tracking
         board_tile_select = SelectedTile((0, 0))
         inv_tile_select = SelectedTile((0, 0), scale=2)
         focus = None
         focus_inv = None
         active_inv_tile = None
         active_board_tile = None
+
+        # tiles played this turn
         letters_played = []
         coords_played = []
-        turn_start = False
-        my_player = game_model.players[self.network.player]
 
+        #  your player and inventory
+        my_player = game_model.players[self.network.player]
         player_inv_view = Inventory(my_player.Get_Inventory())
+
+        # game states (trading letters state, etc)
+        swap_view = False
+
         # buttons
         #commit_btn_pos = (Globals.get_board_offset()[0]+((Globals.get_tile_size()+Globals.get_border_size())*8), Globals.get_height()-50)
-        commit_btn_pos = (790, Globals.get_height()-50)
-
-        commit_btn = RoundButton(image=IMAGES.icons128['cursor_right'], position=commit_btn_pos, scale=0.4, color='green', event=events.lock_in_e)
-        trade_btn_pos = (100, Globals.get_height()-150)
-        trade_btn = RoundButton(image=IMAGES.icons128['replay'], position=trade_btn_pos, scale=0.4, color='red', event=events.commit_swap_e)
-        remove_btn_pos = (175, Globals.get_height()-150)
+        commit_btn_pos = (275, Globals.get_height()-125)
+        commit_btn = RoundButton(image=IMAGES.icons128['cursor_right'], position=commit_btn_pos, scale=0.5, color='green', event=events.lock_in_e)
+        trade_btn_pos = (100, Globals.get_height()-125)
+        trade_btn = RoundButton(image=IMAGES.icons128['replay'], position=trade_btn_pos, scale=0.4, color='red', event=events.exchange_tiles_e)
+        remove_btn_pos = (175, Globals.get_height()-125)
         remove_placed_btn = RoundButton(image=IMAGES.icons128['rewind'], position=remove_btn_pos, scale=0.4, color='yellow', event=events.remove_tile_e)
         my_turn_button_grp = pygame.sprite.Group([commit_btn, trade_btn, remove_placed_btn])
         ok_pos = player_inv_view.position
-        ok_pos = (ok_pos[0] + 36*7, ok_pos[1])
-        cancel_pos = (ok_pos[0] + 36, ok_pos[1])
-
-        ok_btn = RoundButton("", image=IMAGES.icons128['add'], position=ok_pos, scale=0.2, color='yellow')
-        cancel_btn = RoundButton(image=IMAGES.icons128['cross'], position=cancel_pos, scale=0.2, color='red')
+        ok_pos= (ok_pos[0] + player_inv_view.rect.w, ok_pos[1]+player_inv_view.rect.h/4)
+        #ok_pos = (ok_pos[0] + 36*7, ok_pos[1])
+        cancel_pos= (ok_pos[0], ok_pos[1]+(player_inv_view.rect.h/4)*3)
+        ok_btn = RoundButton("", image=IMAGES.icons128['tick'], position=ok_pos, scale=0.2, color='green', event=events.commit_swap_e)
+        cancel_btn = RoundButton(image=IMAGES.icons128['cross'], position=cancel_pos, scale=0.2, color='red', event=events.exchange_tiles_e)
         swap_tiles_button_grp = pygame.sprite.Group([ok_btn, cancel_btn])
-        swap_view = False
 
+        # other GUI
+        swap_view_text_box = TextBox(text='Swap Which Tiles?', window_style=1, color='orange')
         name_plates = self.create_name_plates(game_model)
+        wordQcounter = WordQCounter((50, Globals.get_height()-125), game_model.Get_WordQ_Len())
 
         while running:
             # prep for frame start
             gameboard.update_from_model(game_model)
-
             for letter, coord in zip(letters_played, coords_played):
-                gameboard.set_tile(letter, coord)
+                gameboard.set_tile(letter.letter, coord)
             data = rules.DataPacket('get')
             if game_model.players[self.network.player].Get_Inventory_UUIDs() != my_player.Get_Inventory_UUIDs():
                 my_player = game_model.players[self.network.player]
@@ -1512,7 +1557,8 @@ class Game:
             # handle placing a new tile to the board if it is your turn
             if active_board_tile and active_inv_tile and game_model.active_player == self.network.player \
                     and active_board_tile.coord in required_spots and swap_view == False:
-                letters_played.append(active_inv_tile.letter)
+
+                letters_played.append(my_player.Get_Letter_by_UUID(active_inv_tile.letter_uuid))
                 coords_played.append(active_board_tile.coord)
                 gameboard.set_tile(active_inv_tile.letter, active_board_tile.coord)
                 for tile in player_inv_view.sprites():
@@ -1528,9 +1574,27 @@ class Game:
                 active_board_tile = None
                 active_inv_tile = None
 
+            # handle selecting multiple letters from inventory if swap mode is active
+            elif active_inv_tile and game_model.active_player == self.network.player and swap_view == True:
+                if len(letters_played):
+                    if not active_inv_tile.tapped:
+                        letters_played.append(my_player.Get_Letter_by_UUID(active_inv_tile.letter_uuid))
+                else:
+                    letters_played.append(my_player.Get_Letter_by_UUID(active_inv_tile.letter_uuid))
+                for tile in player_inv_view.sprites():
+                    if tile.letter_uuid == active_inv_tile.letter_uuid:
+                        tile.tap(True)
+                # you placed a tile, so unselect everything
+                active_board_tile = None
+                active_inv_tile = None
+
+
             for event in pygame.event.get():
                 for entity in my_turn_button_grp:
                     entity.handle_event(event)
+                if swap_view:
+                    for entity in swap_tiles_button_grp:
+                        entity.handle_event(event)
                 for entity in gameboard:
                     result, tile = entity.handle_event(event)
                     if result:
@@ -1569,6 +1633,9 @@ class Game:
                     # all selected letters are put into letters_played
 
                     #remove all tiles from board
+                    print("Swap View Toggled")
+                    swap_view = not swap_view
+                    print("swap_view is :" + str(swap_view))
                     for letter_tile in player_inv_view:
                         letter_tile.tap(False)
                     letters_played = []
@@ -1576,14 +1643,11 @@ class Game:
                         gameboard.set_tile('', coord)
                     coords_played = []
 
-                    swap_view = not swap_view
-
                 if event.type == events.commit_swap_e:
-
                     if len(letters_played) and swap_view == True:
                         data = rules.DataPacket('commit', mode=0, letters_played=letters_played,
                                                 player_id=game_model.active_player)
-                    pass
+                        pygame.event.post(pygame.event.Event(events.exchange_tiles_e))
 
                 if event.type == events.game_end_e:
                     # show final results screen
@@ -1604,6 +1668,7 @@ class Game:
                 displaysurface.blit(entity.image, entity.rect)
             # show scoreboard
             self.track_player_status(displaysurface, game_model, name_plates, self.network.player)
+            wordQcounter.update(displaysurface, game_model.Get_WordQ_Len())
             # show current player's turn
             active_player_text = Globals.get_font(20).render(str(game_model.players[game_model.active_player].name) +'s Turn', True, (255,255,255))
             displaysurface.blit(active_player_text, active_player_text.get_rect(topleft=(100, 50)))
@@ -1611,11 +1676,14 @@ class Game:
             displaysurface.blit(gameboard.surf, gameboard.rect)  # showing active bounds of board (temp)
 
             displaysurface.blit(player_inv_view.surf, player_inv_view.rect)
+            gameboard.update(displaysurface, required_spots)
 
+            '''
             for entity in gameboard:
-                if entity.coord in required_spots:
-                    displaysurface.blit(entity.required_surf, entity.highlight_rect)
-                entity.update(displaysurface)
+            if entity.coord in required_spots:
+                displaysurface.blit(entity.required_surf, entity.highlight_rect)
+            entity.update(displaysurface)
+            '''
 
             if active_inv_tile:
                 displaysurface.blit(active_inv_tile.selected_surf, active_inv_tile.highlight_rect)
@@ -1634,6 +1702,7 @@ class Game:
             for entity in my_turn_button_grp:  # turn control buttons
                 entity.update(displaysurface, active=game_model.active_player == self.network.player)
             if swap_view:
+                swap_view_text_box.update(displaysurface)
                 for entity in swap_tiles_button_grp:
                     entity.update(displaysurface, active=game_model.active_player == self.network.player)
 

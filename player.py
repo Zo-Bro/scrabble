@@ -37,7 +37,11 @@ class Player(object):
         for item in self._inventory:
             uuids.append(str(item.uuid))
         return uuids
-
+    def Get_Letter_by_UUID(self, uuid):
+        for item in self._inventory:
+            if item.uuid == uuid:
+                return item
+        return None
     def Add_To_Inventory(self, letter = str):
         '''
         This adds a single letter to the inventory
@@ -46,10 +50,11 @@ class Player(object):
         :param letter:
         :return:
         '''
-        if len(self._inventory) + 1 <= 7:
+        if len(self._inventory) + 1 < 7:
             self._inventory.append(Letter(letter))
             return True
-        else:
+        elif len(self._inventory) + 1 >= 7:
+            self._inventory.append(Letter(letter))
             return False
 
     def Spend_Letters(self, letters=[]):
@@ -62,16 +67,18 @@ class Player(object):
         '''
         for letter in letters:
             for invLetter in self._inventory:
-                if letter == invLetter.letter:
+                if letter.uuid == invLetter.uuid:
                     index = self._inventory.index(invLetter)
                     break
             self._inventory.pop(index)
         return
 
     def Exchange_Letters(self, letters_to_remove, letters_to_add):
-        for letter in letters_to_remove:
-            self._inventory.remove(letter)
-        self._inventory.extend(letters_to_add)
+        remove_uuids = [item.uuid for item in letters_to_remove]
+        result = [invLetter for invLetter in self._inventory if invLetter.uuid not in remove_uuids]
+        self._inventory = result
+        for letter in letters_to_add:
+            self._inventory.append(Letter(letter))
 
     def Increase_Score(self, points=int):
         self._score += points
